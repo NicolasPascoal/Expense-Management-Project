@@ -1,6 +1,6 @@
 import jwt
 from functools import wraps
-from flask import request, jsonify
+from flask import request, jsonify, g
 
 SECRET_KEY = "sua_chave_secreta_super_segura"
 
@@ -18,8 +18,7 @@ def token_required(f):
                 token = token.split(" ")[1]
                 
             data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-            # Aqui poderíamos injetar o usuário no request se necessário
-            # request.user = data
+            g.user = data
         except jwt.ExpiredSignatureError:
             return jsonify({'erro': 'Token expirado!'}), 401
         except jwt.InvalidTokenError:

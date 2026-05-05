@@ -14,9 +14,10 @@ def login_usuario(username, password):
 
     if usuario and check_password_hash(usuario['password'], password):
         token = jwt.encode({
-            'user_id': usuario['id'],
+            'id': usuario['id'],
             'username': usuario['username'],
             'is_admin': usuario['is_admin'],
+            'role': usuario['role'],
             'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
         }, SECRET_KEY, algorithm="HS256")
         
@@ -25,7 +26,8 @@ def login_usuario(username, password):
             'user': {
                 'id': usuario['id'],
                 'username': usuario['username'],
-                'is_admin': bool(usuario['is_admin'])
+                'is_admin': bool(usuario['is_admin']),
+                'role': usuario['role']
             }
         }
     

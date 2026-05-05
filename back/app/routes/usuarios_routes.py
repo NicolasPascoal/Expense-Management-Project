@@ -18,11 +18,12 @@ def novo_usuario():
     username = dados.get('username')
     password = dados.get('password')
     is_admin = dados.get('is_admin', False)
+    role = dados.get('role', 'admin' if is_admin else 'prestador')
 
     if not username or not password:
         return jsonify({'erro': 'Username e senha são obrigatórios'}), 400
 
-    res = criar_usuario(username, password, is_admin)
+    res = criar_usuario(username, password, is_admin, role)
     if 'erro' in res:
         return jsonify(res), 400
         

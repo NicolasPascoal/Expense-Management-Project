@@ -17,6 +17,8 @@ def listar_projetos():
     for p in projetos:
         if p['colunas']:
             p['colunas'] = json.loads(p['colunas'])
+        else:
+            p['colunas'] = []
             
     conn.close()
     return jsonify(projetos)

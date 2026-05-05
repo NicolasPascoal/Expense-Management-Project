@@ -4,26 +4,26 @@ from werkzeug.security import generate_password_hash
 def get_todos_usuarios():
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, username, is_admin FROM usuarios")
+    cursor.execute("SELECT id, username, is_admin, role FROM usuarios")
     usuarios = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return usuarios
 
-def criar_usuario(username, password, is_admin=0):
+def criar_usuario(username, password, is_admin=0, role='prestador'):
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "INSERT INTO usuarios (username, password, is_admin) VALUES (?, ?, ?)",
-            (username, generate_password_hash(password), 1 if is_admin else 0)
+            "INSERT INTO usuarios (username, password, is_admin, role) VALUES (?, ?, ?, ?)",
+            (username, generate_password_hash(password), 1 if is_admin else 0, role)
         )
         conn.commit()
         novo_id = cursor.lastrowid
         conn.close()
-        return {"id": novo_id, "username": username, "is_admin": bool(is_admin)}
+        return {"id": novo_id, "username": username, "is_admin": bool(is_admin), "role": role}
     except Exception as e:
         conn.close()
-        return {"erro": "Usuário já existe ou erro no banco"}
+        return {"erro": str(e)}
 
 def deletar_usuario(id):
     conn = get_db_connection()

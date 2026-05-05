@@ -22,6 +22,15 @@ def init_db():
         )
     ''')
 
+    # Garantir que existe ao menos um projeto para as chaves estrangeiras
+    cursor.execute("SELECT COUNT(*) FROM projetos")
+    default_cols = '[{"name":"data","label":"Data","type":"text"},{"name":"categoria","label":"Categoria","type":"select"},{"name":"item","label":"Item / Descrição","type":"text"},{"name":"fornecedor","label":"Fornecedor","type":"text"},{"name":"quantidade","label":"Qtd","type":"number"},{"name":"unitario","label":"Unitário (R$)","type":"text"},{"name":"valor","label":"Valor Pago (R$)","type":"text"},{"name":"forma","label":"Forma","type":"select"},{"name":"conta","label":"Conta","type":"select"},{"name":"obs","label":"Observações","type":"textarea"}]'
+    if cursor.fetchone()[0] == 0:
+        cursor.execute("INSERT INTO projetos (id, nome, colunas) VALUES (?, ?, ?)", (1, "Projeto Principal", default_cols))
+    else:
+        # Garante que o projeto 1 tenha colunas se estiver vazio (correção para bancos já criados)
+        cursor.execute("UPDATE projetos SET colunas = ? WHERE id = 1 AND (colunas IS NULL OR colunas = '[]' OR colunas = '')", (default_cols,))
+
     # Nova tabela de lançamentos (versão 2)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS lancamentos_v2 (
@@ -85,7 +94,8 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT NOT NULL UNIQUE,
             password TEXT NOT NULL,
-            is_admin INTEGER DEFAULT 0
+            is_admin INTEGER DEFAULT 0,
+            role TEXT DEFAULT 'prestador'
         )
     ''')
     
@@ -94,13 +104,33 @@ def init_db():
     except:
         pass 
 
+    try:
+        cursor.execute("ALTER TABLE usuarios ADD COLUMN role TEXT DEFAULT 'prestador'")
+    except:
+        pass
+
     cursor.execute("SELECT COUNT(*) FROM usuarios")
     if cursor.fetchone()[0] == 0:
         from werkzeug.security import generate_password_hash
-        cursor.execute("INSERT INTO usuarios (username, password, is_admin) VALUES (?, ?, ?)", 
-                       ("admin", generate_password_hash("admin"), 1))
+        cursor.execute("INSERT INTO usuarios (username, password, is_admin, role) VALUES (?, ?, ?, ?)", 
+                       ("admin", generate_password_hash("admin"), 1, "admin"))
     else:
-        cursor.execute("UPDATE usuarios SET is_admin = 1 WHERE username = 'admin'")
+        cursor.execute("UPDATE usuarios SET is_admin = 1, role = 'admin' WHERE username = 'admin'")
+        cursor.execute("UPDATE usuarios SET role = 'admin' WHERE is_admin = 1")
+
+    # Tabela de Requisições de Materiais
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS requisicoes_materiais (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            usuario_id INTEGER NOT NULL,
+            nome TEXT NOT NULL,
+            funcao TEXT NOT NULL,
+            material TEXT NOT NULL,
+            status TEXT DEFAULT 'Pendente',
+            data_criacao DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (usuario_id) REFERENCES usuarios (id) ON DELETE CASCADE
+        )
+    ''')
 
     cursor.execute("SELECT COUNT(*) FROM categorias")
     if cursor.fetchone()[0] == 0:

@@ -1,0 +1,62 @@
+from flask import Blueprint, request, jsonify, g
+from app.database.db import get_db_connection
+from app.utils.auth_middleware import token_required, admin_required
+
+requisicao_bp = Blueprint('requisicoes', __name__)
+
+@requisicao_bp.route('/requisicoes', methods=['GET'])
+@token_required
+def listar_requisicoes():
+    user = g.user
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    if user.get('is_admin'):
+        cursor.execute('SELECT r.*, u.username FROM requisicoes_materiais r JOIN usuarios u ON r.usuario_id = u.id ORDER BY data_criacao DESC')
+    else:
+        cursor.execute('SELECT r.*, u.username FROM requisicoes_materiais r JOIN usuarios u ON r.usuario_id = u.id WHERE r.usuario_id = ? ORDER BY data_criacao DESC', (user['id'],))
+        
+    requisicoes = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return jsonify(requisicoes)
+
+@requisicao_bp.route('/requisicoes', methods=['POST'])
+@token_required
+def criar_requisicao():
+    user = g.user
+    dados = request.get_json()
+    nome = dados.get('nome')
+    funcao = dados.get('funcao')
+    material = dados.get('material')
+    
+    if not all([nome, funcao, material]):
+        return jsonify({'erro': 'Campos obrigatórios: nome, funcao, material'}), 400
+        
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        'INSERT INTO requisicoes_materiais (usuario_id, nome, funcao, material) VALUES (?, ?, ?, ?)',
+        (user['id'], nome, funcao, material)
+    )
+    req_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'id': req_id, 'status': 'Pendente'}), 201
+
+@requisicao_bp.route('/requisicoes/<int:id>/status', methods=['PUT'])
+@admin_required
+def atualizar_status(id):
+    dados = request.get_json()
+    status = dados.get('status')
+    
+    if not status:
+        return jsonify({'erro': 'Status é obrigatório'}), 400
+        
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('UPDATE requisicoes_materiais SET status = ? WHERE id = ?', (status, id))
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'mensagem': 'Status atualizado'})
