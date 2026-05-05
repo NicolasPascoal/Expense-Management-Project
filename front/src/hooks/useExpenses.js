@@ -1,30 +1,148 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { api } from "../services/api";
-import { EMPTY_FORM, FORMAS } from "../data/constants";
+import { FORMAS, DEFAULT_COLUMNS } from "../data/constants";
 import { parseVal } from "../utils/format";
 
 export function useExpenses() {
   const [tab, setTab] = useState("lancamentos");
   const [dados, setDados] = useState([]);
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState({});
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [filtros, setFiltros] = useState({categoria:"",conta:"",forma:"",busca:""});
   const [deleteId, setDeleteId] = useState(null);
+  const [confirmConfig, setConfirmConfig] = useState(null);
   const fileRef = useRef();
   const receiptRef = useRef();
   const [scanning, setScanning] = useState(false);
 
+  // Estados de Projeto
+  const [projetos, setProjetos] = useState([]);
+  const [projetoAtivo, setProjetoAtivo] = useState(null);
+  const [showProjectModal, setShowProjectModal] = useState(false);
+  const [token, setToken] = useState(localStorage.getItem("token"));
+  const [user, setUser] = useState(JSON.parse(localStorage.getItem("user") || "null"));
+  const [categoriasDb, setCategoriasDb] = useState([]);
+  const [contasDb, setContasDb] = useState([]);
+
   useEffect(() => {
-    fetchDados();
+    const handleAuthError = () => {
+      setToken(null);
+    };
+    window.addEventListener("auth-error", handleAuthError);
+    return () => window.removeEventListener("auth-error", handleAuthError);
   }, []);
 
-  const fetchDados = async () => {
+  useEffect(() => {
+    if (token) {
+      fetchProjetos();
+    }
+  }, [token]);
+
+  const logout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setToken(null);
+    setUser(null);
+  };
+
+  useEffect(() => {
+    if (token && projetoAtivo) {
+      fetchServicos();
+    }
+  }, [projetoAtivo, token]);
+
+  const fetchServicos = async () => {
+    if (!projetoAtivo) return;
     try {
-      const res = await api.getLancamentos();
+      const [cats, ctas] = await Promise.all([
+        api.getCategorias(projetoAtivo.id),
+        api.getContas(projetoAtivo.id)
+      ]);
+      setCategoriasDb(cats);
+      setContasDb(ctas);
+    } catch (err) {
+      console.error("Erro ao buscar serviços:", err);
+    }
+  };
+
+  const addCategoria = async (nome) => {
+    if (!projetoAtivo) return;
+    try {
+      await api.createCategoria(nome, projetoAtivo.id);
+      fetchServicos();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const removeCategoria = async (id) => {
+    try {
+      await api.deleteCategoria(id);
+      fetchServicos();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const addConta = async (nome) => {
+    if (!projetoAtivo) return;
+    try {
+      await api.createConta(nome, projetoAtivo.id);
+      fetchServicos();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  useEffect(() => {
+    if (projetoAtivo) {
+      fetchDados();
+    }
+  }, [projetoAtivo]);
+
+  const fetchProjetos = async () => {
+    try {
+      const res = await api.getProjetos();
+      setProjetos(res);
+      if (res.length > 0 && !projetoAtivo) {
+        setProjetoAtivo(res[0]);
+      }
+    } catch (e) {
+      console.error("Erro ao buscar projetos:", e);
+    }
+  };
+
+  const fetchDados = async () => {
+    if (!projetoAtivo) return;
+    try {
+      const res = await api.getLancamentos(projetoAtivo.id);
       setDados(res);
     } catch (e) {
       console.error("Erro ao buscar dados:", e);
+    }
+  };
+
+  const createProject = async (nome, colunas = DEFAULT_COLUMNS) => {
+    try {
+      const novo = await api.createProjeto({ nome, colunas });
+      setProjetos([...projetos, novo]);
+      setProjetoAtivo(novo);
+      setShowProjectModal(false);
+    } catch (e) {
+      alert("Erro ao criar projeto");
+    }
+  };
+
+  const deleteProject = async (id) => {
+    try {
+      await api.deleteProjeto(id);
+      const novosProjetos = projetos.filter(p => p.id !== id);
+      setProjetos(novosProjetos);
+      setProjetoAtivo(novosProjetos.length > 0 ? novosProjetos[0] : null);
+      if (novosProjetos.length === 0) setDados([]);
+    } catch (e) {
+      alert("Erro ao excluir projeto");
     }
   };
 
@@ -35,7 +153,8 @@ export function useExpenses() {
       if(filtros.forma && d.forma !== filtros.forma) return false;
       if(filtros.busca) {
         const b = filtros.busca.toLowerCase();
-        if(![d.item,d.fornecedor,d.obs].some(x=>(x||"").toLowerCase().includes(b))) return false;
+        // Busca em todos os campos do objeto
+        return Object.values(d).some(v => (v||"").toString().toLowerCase().includes(b));
       }
       return true;
     });
@@ -45,13 +164,21 @@ export function useExpenses() {
 
   const porCategoria = useMemo(()=>{
     const m={};
-    dados.forEach(d=>{const v=parseVal(d.valor); m[d.categoria]=(m[d.categoria]||0)+v;});
+    dados.forEach(d=>{
+      const cat = d.categoria || "Outros";
+      const v=parseVal(d.valor); 
+      m[cat]=(m[cat]||0)+v;
+    });
     return Object.entries(m).sort((a,b)=>b[1]-a[1]);
   },[dados]);
 
   const porConta = useMemo(()=>{
     const m={};
-    dados.forEach(d=>{const v=parseVal(d.valor); m[d.conta]=(m[d.conta]||0)+v;});
+    dados.forEach(d=>{
+      const conta = d.conta || "N/A";
+      const v=parseVal(d.valor); 
+      m[conta]=(m[conta]||0)+v;
+    });
     return Object.entries(m).sort((a,b)=>b[1]-a[1]);
   },[dados]);
 
@@ -71,7 +198,12 @@ export function useExpenses() {
   };
 
   const saveForm = async () => {
-    if(!form.data||!form.categoria||!form.item||!form.conta) return alert("Preencha os campos obrigatórios: Data, Categoria, Item e Conta Pagadora.");
+    if (!projetoAtivo) return;
+    
+    // Validação básica se as colunas padrão existirem
+    if(projetoAtivo.colunas.some(c => c.name === 'data') && !form.data) {
+        return alert("O campo Data é obrigatório.");
+    }
     
     try {
       if(editId) {
@@ -85,12 +217,13 @@ export function useExpenses() {
       } else {
         const novo = await api.createLancamento({
           ...form,
+          projeto_id: projetoAtivo.id,
           valor: parseVal(form.valor),
           unitario: parseVal(form.unitario)
         });
         setDados([...dados, novo]);
       }
-      setForm(EMPTY_FORM);
+      setForm({});
       setShowForm(false);
     } catch (e) {
       alert("Erro ao salvar lançamento");
@@ -98,38 +231,40 @@ export function useExpenses() {
   };
 
   const startEdit = row => {
-    setForm({...row,unitario:row.unitario,valor:row.valor});
+    setForm({...row});
     setEditId(row.id);
     setShowForm(true);
     setTab("lancamentos");
   };
 
-  const confirmDelete = async () => {
-    try {
-      await api.deleteLancamento(deleteId);
-      setDados(dados.filter(x => x.id !== deleteId));
-      setDeleteId(null);
-    } catch (e) {
-      alert("Erro ao excluir lançamento");
-    }
+  const askConfirm = (config) => {
+    setConfirmConfig(config);
   };
 
   const exportCSV = () => {
-    const fmtL = v => v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
-    const cols=["Data","Categoria","Item","Fornecedor","Quantidade","Unitário","Valor Pago (R$)","Forma Pagamento","Conta Pagadora","Observações"];
-    const rows=filtered.map(d=>[d.data,d.categoria,d.item,d.fornecedor,d.quantidade,
-      fmtL(parseVal(d.unitario)),fmtL(parseVal(d.valor)),d.forma,d.conta,d.obs||""].map(v=>`"${v}"`).join(";"));
+    if (!projetoAtivo) return;
+    const cols = projetoAtivo.colunas.map(c => c.label);
+    const names = projetoAtivo.colunas.map(c => c.name);
+    
+    const rows = filtered.map(d => names.map(n => {
+        let v = d[n] || "";
+        if (n === 'valor' || n === 'unitario') v = parseVal(v).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+        return `"${v}"`;
+    }).join(";"));
+
     const csv="\uFEFF"+[cols.join(";"),...rows].join("\n");
     const a=document.createElement("a");
     a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
-    a.download="despesas_itanhaem.csv";
+    a.download=`despesas_${projetoAtivo.nome.toLowerCase().replace(/ /g,"_")}.csv`;
     a.click();
   };
 
   const scanReceipt = async e => {
     const file = e.target.files[0]; if(!file) return;
+    if (!projetoAtivo) return;
+
     setScanning(true);
-    setShowForm(true); setEditId(null); setForm(EMPTY_FORM);
+    setShowForm(true); setEditId(null); setForm({});
     e.target.value="";
     try {
       const base64 = await new Promise((res,rej)=>{
@@ -138,12 +273,15 @@ export function useExpenses() {
         r.onerror=()=>rej(new Error("Erro ao ler arquivo"));
         r.readAsDataURL(file);
       });
+      
       const mediaType = file.type||"image/jpeg";
       const isPdf = mediaType==="application/pdf";
       const contentBlock = isPdf
         ? {type:"document",source:{type:"base64",media_type:"application/pdf",data:base64}}
         : {type:"image",source:{type:"base64",media_type:mediaType,data:base64}};
 
+      // Aqui poderíamos adaptar o prompt dinamicamente baseado nas colunas do projeto
+      // Mas por enquanto mantemos o padrão que atende a maioria das obras
       const resp = await fetch("https://api.anthropic.com/v1/messages",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
@@ -154,19 +292,8 @@ export function useExpenses() {
             role:"user",
             content:[
               contentBlock,
-              {type:"text",text:`Você é um assistente de uma construtora. Analise este recibo/nota fiscal e extraia as informações. Retorne APENAS um JSON válido, sem texto adicional, com estes campos:
-{
-  "item": "descrição principal do item ou serviço",
-  "fornecedor": "nome do fornecedor/empresa emissora",
-  "categoria": "uma das categorias: Documentação, Terraplanagem, Fundação, Ferramentas, Material de construção, Mão de obra, Equipamentos/aluguel, Taxas e impostos, Outros",
-  "valor": numero_sem_formatacao,
-  "quantidade": numero,
-  "unitario": numero_sem_formatacao,
-  "forma": "Pix, Crédito, Débito, Boleto, Dinheiro ou Transferência",
-  "data": "DD/MM/AAAA ou vazio se não encontrar",
-  "obs": "informação adicional relevante se houver"
-}
-Classifique a categoria com base no contexto de uma construtora de condomínios residenciais.`}
+              {type:"text",text:`Analise este recibo e extraia as informações. Retorne APENAS um JSON válido.
+              Tente mapear para estes campos se possível: ${projetoAtivo.colunas.map(c=>c.name).join(", ")}.`}
             ]
           }]
         })
@@ -175,22 +302,20 @@ Classifique a categoria com base no contexto de uma construtora de condomínios 
       const text = data.content.map(c=>c.text||"").join("");
       const clean = text.replace(/```json|```/g,"").trim();
       const parsed = JSON.parse(clean);
-      setForm(f=>({
-        ...f,
-        item: parsed.item||"",
-        fornecedor: parsed.fornecedor||"",
-        categoria: parsed.categoria||"",
-        valor: parsed.valor||"",
-        quantidade: parsed.quantidade||1,
-        unitario: parsed.unitario||"",
-        forma: parsed.forma||"Pix",
-        data: parsed.data||"",
-        obs: parsed.obs||""
-      }));
+      setForm(f=>({...f, ...parsed}));
     } catch(err) {
-      alert("Erro ao ler o recibo. Tente novamente ou preencha manualmente.");
+      alert("Erro ao ler o recibo. Tente preencher manualmente.");
     } finally {
       setScanning(false);
+    }
+  };
+
+  const removeConta = async (id) => {
+    try {
+      await api.deleteConta(id);
+      fetchServicos();
+    } catch (err) {
+      alert(err.message);
     }
   };
 
@@ -198,31 +323,84 @@ Classifique a categoria com base no contexto de uma construtora de condomínios 
     const file = e.target.files[0]; if(!file) return;
     const reader = new FileReader();
     reader.onload = async ev => {
-      const lines = ev.target.result.split("\n").filter(Boolean);
-      const headers = lines[0].split(/[,;]/).map(h=>h.trim().replace(/^"|"$/g,"").toLowerCase());
+      const content = ev.target.result;
+      const lines = content.split(/\r?\n/).filter(line => {
+        const trimmed = line.trim();
+        // Ignora linhas totalmente vazias ou que contenham apenas separadores (,,,, ou ;;;;)
+        return trimmed.length > 0 && trimmed.replace(/[,;]/g, "").length > 0;
+      });
+      if (lines.length === 0) return;
+
+      // Detecta o separador (vírgula ou ponto-e-vírgula)
+      const firstLine = lines[0];
+      const separator = firstLine.includes(";") ? ";" : ",";
+
+      // Função auxiliar para processar uma linha de CSV respeitando aspas
+      const parseCSVLine = (line) => {
+        const result = [];
+        let current = "";
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+          if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === separator && !inQuotes) {
+            result.push(current.trim().replace(/^"|"$/g, ""));
+            current = "";
+          } else {
+            current += char;
+          }
+        }
+        result.push(current.trim().replace(/^"|"$/g, ""));
+        return result;
+      };
+
+      const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase());
+      
+      let targetProjeto = projetoAtivo;
+      
+      if (!targetProjeto) {
+        // Criar projeto automático baseado nos cabeçalhos
+        const colunas = headers.map(h => ({
+            name: h.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "_"),
+            label: h.charAt(0).toUpperCase() + h.slice(1),
+            type: "text"
+        }));
+        const nome = file.name.split(".")[0];
+        try {
+            targetProjeto = await api.createProjeto({ nome, colunas });
+            setProjetos(prev => [...prev, targetProjeto]);
+            setProjetoAtivo(targetProjeto);
+        } catch (err) {
+            return alert("Erro ao criar projeto automático");
+        }
+      }
+
       let count = 0;
-      for(let i=1;i<lines.length;i++){
-        const vals = lines[i].split(/[,;]/).map(v=>v.trim().replace(/^"|"$/g,""));
-        const obj={};
-        headers.forEach((h,j)=>obj[h]=vals[j]||"");
-        const formaRaw = vals[7]||"";
-        const forma = FORMAS.includes(formaRaw) ? formaRaw : (obj["forma pagamento"]||obj["forma"]||"Pix");
+      for(let i = 1; i < lines.length; i++){
+        const vals = parseCSVLine(lines[i]);
+        const payload = {};
+        let hasData = false;
         
-        const payload = {
-          data: vals[0]||obj["data"]||"",
-          categoria: vals[1]||obj["categoria"]||"Outros",
-          item: vals[2]||obj["item"]||"",
-          fornecedor: vals[3]||obj["fornecedor"]||"",
-          quantidade: parseFloat(vals[4]||obj["quantidade"])||1,
-          unitario: parseVal(vals[5]||obj["unitário"]||obj["unitario"]||"0"),
-          valor: parseVal(vals[6]||obj["valor pago (r$)"]||obj["valor"]||"0"),
-          forma,
-          conta: vals[8]||obj["conta pagadora"]||obj["conta"]||"",
-          obs: vals[9]||obj["observações"]||obj["observacoes"]||""
-        };
+        // Mapeamento inteligente: tenta encontrar a coluna pelo nome ou pelo índice
+        targetProjeto.colunas.forEach((col, j) => {
+            // Tenta encontrar o índice da coluna no CSV pelo nome ou label
+            const csvIndex = headers.findIndex(h => 
+              h === col.name.toLowerCase() || 
+              h === col.label.toLowerCase()
+            );
+            
+            const indexToUse = csvIndex !== -1 ? csvIndex : j;
+            const val = vals[indexToUse] || "";
+            payload[col.name] = val;
+            
+            if (val.trim().length > 0) hasData = true;
+        });
+
+        if (!hasData) continue; // Pula se a linha não tiver nenhum dado real
 
         try {
-          await api.createLancamento(payload);
+          await api.createLancamento({ ...payload, projeto_id: targetProjeto.id });
           count++;
         } catch (e) {
           console.error("Erro ao importar linha", i, e);
@@ -231,12 +409,12 @@ Classifique a categoria com base no contexto de uma construtora de condomínios 
       fetchDados();
       alert(`${count} registros importados com sucesso!`);
     };
-    reader.readAsText(file,"UTF-8");
-    e.target.value="";
+    reader.readAsText(file, "UTF-8");
+    e.target.value = "";
   };
 
-  const cats = [...new Set(dados.map(d=>d.categoria))].sort();
-  const contas = [...new Set(dados.map(d=>d.conta))].sort();
+  const cats = [...new Set(dados.map(d=>d.categoria || "Outros"))].sort();
+  const contas = [...new Set(dados.map(d=>d.conta || "N/A"))].sort();
 
   return {
     tab, setTab,
@@ -248,6 +426,11 @@ Classifique a categoria com base no contexto de uma construtora de condomínios 
     deleteId, setDeleteId,
     fileRef, receiptRef,
     scanning, setScanning,
+    projetos, setProjetos,
+    projetoAtivo, setProjetoAtivo,
+    showProjectModal, setShowProjectModal,
+    createProject,
+    deleteProject,
     filtered,
     totalFiltrado,
     porCategoria,
@@ -255,10 +438,23 @@ Classifique a categoria com base no contexto de uma construtora de condomínios 
     totalGeral,
     cats,
     contas,
+    categoriasDb,
+    contasDb,
+    addCategoria,
+    removeCategoria,
+    addConta,
+    removeConta,
+    fetchServicos,
+    token,
+    setToken,
+    logout,
+    user,
+    setUser,
+    confirmConfig, setConfirmConfig,
+    askConfirm,
     handleForm,
     saveForm,
     startEdit,
-    confirmDelete,
     exportCSV,
     scanReceipt,
     importCSV

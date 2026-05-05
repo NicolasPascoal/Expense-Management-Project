@@ -18,16 +18,10 @@ def seed():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    # Limpa a tabela antes de importar (opcional, mas evita duplicados se rodar várias vezes)
-    # cursor.execute('DELETE FROM lancamentos')
-    
     print(f"Importando {len(dados)} registros...")
 
     for item in dados:
-        # Preparar dados para inserção
-        # Note: O SQLite vai gerar um novo ID se não passarmos, 
-        # mas podemos tentar manter o ID original se quisermos.
-        # Aqui vamos deixar o SQLite gerar novos IDs para evitar conflitos futuros.
+       
         
         cursor.execute('''
             INSERT INTO lancamentos (data, categoria, item, fornecedor, quantidade, unitario, valor, forma, conta, obs)

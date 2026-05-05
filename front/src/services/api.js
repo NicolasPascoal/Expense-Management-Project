@@ -1,44 +1,150 @@
 const API_URL = '/api';
-const AUTH_TOKEN = 'token-de-teste';
 
-const headers = {
-  'Content-Type': 'application/json',
-  'Authorization': AUTH_TOKEN
+const getHeaders = () => {
+  const token = localStorage.getItem('token');
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': token ? `Bearer ${token}` : ''
+  };
 };
 
+async function callApi(url, options = {}) {
+  const response = await fetch(url, {
+    ...options,
+    headers: { ...getHeaders(), ...options.headers }
+  });
+
+  if (response.status === 401) {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.dispatchEvent(new Event('auth-error'));
+    throw new Error('Sessão expirada. Faça login novamente.');
+  }
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.erro || `Erro na requisição: ${response.status}`);
+  }
+
+  return response.json();
+}
+
 export const api = {
-  async getLancamentos() {
-    const response = await fetch(`${API_URL}/lancamentos`, { headers });
-    if (!response.ok) throw new Error('Erro ao buscar lançamentos');
-    return response.json();
+  // Auth
+  async login(username, password) {
+    const data = await callApi(`${API_URL}/login`, {
+      method: 'POST',
+      body: JSON.stringify({ username, password })
+    });
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('user', JSON.stringify(data.user));
+    return data;
+  },
+
+  // Lançamentos
+  async getLancamentos(projetoId) {
+    const url = projetoId ? `${API_URL}/lancamentos?projeto_id=${projetoId}` : `${API_URL}/lancamentos`;
+    return callApi(url);
   },
 
   async createLancamento(dados) {
-    const response = await fetch(`${API_URL}/lancamentos`, {
+    return callApi(`${API_URL}/lancamentos`, {
       method: 'POST',
-      headers,
       body: JSON.stringify(dados)
     });
-    if (!response.ok) throw new Error('Erro ao criar lançamento');
-    return response.json();
   },
 
   async updateLancamento(id, dados) {
-    const response = await fetch(`${API_URL}/lancamentos/${id}`, {
+    return callApi(`${API_URL}/lancamentos/${id}`, {
       method: 'PUT',
-      headers,
       body: JSON.stringify(dados)
     });
-    if (!response.ok) throw new Error('Erro ao atualizar lançamento');
-    return response.json();
   },
 
   async deleteLancamento(id) {
-    const response = await fetch(`${API_URL}/lancamentos/${id}`, {
-      method: 'DELETE',
-      headers
+    return callApi(`${API_URL}/lancamentos/${id}`, {
+      method: 'DELETE'
     });
-    if (!response.ok) throw new Error('Erro ao deletar lançamento');
-    return response.json();
+  },
+
+  // Projetos
+  async getProjetos() {
+    return callApi(`${API_URL}/projetos`);
+  },
+
+  async createProjeto(dados) {
+    return callApi(`${API_URL}/projetos`, {
+      method: 'POST',
+      body: JSON.stringify(dados)
+    });
+  },
+
+  async updateProjeto(id, dados) {
+    return callApi(`${API_URL}/projetos/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(dados)
+    });
+  },
+
+  async deleteProjeto(id) {
+    return callApi(`${API_URL}/projetos/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  // Categorias
+  async getCategorias(projetoId) {
+    const url = projetoId ? `${API_URL}/categorias?projeto_id=${projetoId}` : `${API_URL}/categorias`;
+    return callApi(url);
+  },
+
+  async createCategoria(nome, projetoId) {
+    return callApi(`${API_URL}/categorias`, {
+      method: 'POST',
+      body: JSON.stringify({ nome, projeto_id: projetoId })
+    });
+  },
+
+  async deleteCategoria(id) {
+    return callApi(`${API_URL}/categorias/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  // Contas
+  async getContas(projetoId) {
+    const url = projetoId ? `${API_URL}/contas?projeto_id=${projetoId}` : `${API_URL}/contas`;
+    return callApi(url);
+  },
+
+  async createConta(nome, projetoId) {
+    return callApi(`${API_URL}/contas`, {
+      method: 'POST',
+      body: JSON.stringify({ nome, projeto_id: projetoId })
+    });
+  },
+
+  async deleteConta(id) {
+    return callApi(`${API_URL}/contas/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  // Usuários (Admin)
+  async getUsuarios() {
+    return callApi(`${API_URL}/usuarios`);
+  },
+
+  async createUsuario(username, password, is_admin) {
+    return callApi(`${API_URL}/usuarios`, {
+      method: 'POST',
+      body: JSON.stringify({ username, password, is_admin })
+    });
+  },
+
+  async deleteUsuario(id) {
+    return callApi(`${API_URL}/usuarios/${id}`, {
+      method: 'DELETE'
+    });
   }
 };
