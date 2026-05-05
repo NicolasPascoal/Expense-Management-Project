@@ -4,7 +4,7 @@ import { FORMAS, DEFAULT_COLUMNS } from "../data/constants";
 import { parseVal } from "../utils/format";
 
 export function useExpenses() {
-  const [tab, setTab] = useState("lancamentos");
+  const [tab, setTab] = useState("dashboard");
   const [dados, setDados] = useState([]);
   const [form, setForm] = useState({});
   const [showForm, setShowForm] = useState(false);
@@ -24,6 +24,40 @@ export function useExpenses() {
   const [user, setUser] = useState(JSON.parse(localStorage.getItem("user") || "null"));
   const [categoriasDb, setCategoriasDb] = useState([]);
   const [contasDb, setContasDb] = useState([]);
+  const [requisicoes, setRequisicoes] = useState([]);
+
+  useEffect(() => {
+    if (token) {
+      fetchRequisicoes();
+    }
+  }, [token]);
+
+  const fetchRequisicoes = async () => {
+    try {
+      const res = await api.getRequisicoes();
+      setRequisicoes(res);
+    } catch (e) {
+      console.error("Erro ao buscar requisições:", e);
+    }
+  };
+
+  const createRequisicao = async (dados) => {
+    try {
+      await api.createRequisicao(dados);
+      fetchRequisicoes();
+    } catch (e) {
+      alert("Erro ao criar requisição: " + e.message);
+    }
+  };
+
+  const updateRequisicaoStatus = async (id, status) => {
+    try {
+      await api.updateRequisicaoStatus(id, status);
+      fetchRequisicoes();
+    } catch (e) {
+      alert("Erro ao atualizar status: " + e.message);
+    }
+  };
 
   useEffect(() => {
     const handleAuthError = () => {
@@ -445,6 +479,10 @@ export function useExpenses() {
     addConta,
     removeConta,
     fetchServicos,
+    requisicoes,
+    fetchRequisicoes,
+    createRequisicao,
+    updateRequisicaoStatus,
     token,
     setToken,
     logout,

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../services/api";
 import { btnStyle } from "../utils/styles";
+import { Construction } from "lucide-react";
 
 export function Login({ onLogin }) {
   const [username, setUsername] = useState("");
@@ -41,7 +42,11 @@ export function Login({ onLogin }) {
         maxWidth: 400,
         textAlign: "center"
       }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>🏗️</div>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+          <div style={{ background: "#f1f5f9", padding: 16, borderRadius: "50%", color: "#1e3a5f" }}>
+            <Construction size={48} />
+          </div>
+        </div>
         <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: "#1e293b" }}>Gestão de Despesas</h1>
         <p style={{ color: "#64748b", marginTop: 8, marginBottom: 32 }}>Faça login para acessar o painel</p>
 

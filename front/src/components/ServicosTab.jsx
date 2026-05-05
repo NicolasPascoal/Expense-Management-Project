@@ -65,7 +65,6 @@ export function ServicosTab({ categoriasDb, contasDb, addCategoria, removeCatego
       {/* Gestão de Categorias */}
       <div style={sectionStyle}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <span style={{ fontSize: 24 }}>📂</span>
           <h2 style={{ margin: 0, fontSize: 18, color: "#1e293b" }}>Categorias</h2>
         </div>
         <p style={{ margin: 0, fontSize: 14, color: "#64748b" }}>Gerencie as categorias disponíveis para classificação de despesas.</p>
@@ -110,7 +109,6 @@ export function ServicosTab({ categoriasDb, contasDb, addCategoria, removeCatego
       {/* Gestão de Contas */}
       <div style={sectionStyle}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <span style={{ fontSize: 24 }}>💳</span>
           <h2 style={{ margin: 0, fontSize: 18, color: "#1e293b" }}>Contas / Pagadores</h2>
         </div>
         <p style={{ margin: 0, fontSize: 14, color: "#64748b" }}>Cadastre as contas bancárias ou responsáveis pelos pagamentos.</p>

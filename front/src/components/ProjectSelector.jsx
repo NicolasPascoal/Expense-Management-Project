@@ -1,4 +1,5 @@
 import { btnStyle, inputStyle } from "../utils/styles";
+import { FolderOpen, Plus, Trash2, AlertTriangle } from "lucide-react";
 
 export function ProjectSelector({ 
   projetos, 
@@ -16,7 +17,9 @@ export function ProjectSelector({
       gap: 12, 
       flexWrap: "wrap"
     }}>
-      <span style={{ fontSize: 13, fontWeight: 600, color: "#cbd5e1" }}>📁 Projeto Ativo:</span>
+      <span style={{ fontSize: 13, fontWeight: 600, color: "#cbd5e1", display: "flex", alignItems: "center", gap: 6 }}>
+        <FolderOpen size={16} /> Projeto:
+      </span>
       <select 
         value={projetoAtivo?.id || ""} 
         onChange={(e) => {
@@ -41,9 +44,9 @@ export function ProjectSelector({
         <>
           <button 
             onClick={() => setShowProjectModal(true)} 
-            style={btnStyle("#2563eb")}
+            style={{ ...btnStyle("#2563eb"), display: "flex", alignItems: "center", gap: 6 }}
           >
-            + Novo Projeto
+            <Plus size={16} /> Novo Projeto
           </button>
           {projetoAtivo && (
             <button 
@@ -51,14 +54,14 @@ export function ProjectSelector({
                 askConfirm({
                   title: `Excluir projeto "${projetoAtivo.nome}"?`,
                   message: "TODOS os lançamentos, categorias e contas deste projeto serão excluídos permanentemente.",
-                  icon: "⚠️",
+                  icon: <AlertTriangle size={40} color="#f59e0b" />,
                   confirmText: "Excluir Tudo",
                   onConfirm: () => deleteProject(projetoAtivo.id)
                 });
               }} 
-              style={btnStyle("#dc2626")}
+              style={{ ...btnStyle("#dc2626"), display: "flex", alignItems: "center", gap: 6 }}
             >
-              🗑️ Excluir Projeto
+              <Trash2 size={16} /> Excluir Projeto
             </button>
           )}
         </>

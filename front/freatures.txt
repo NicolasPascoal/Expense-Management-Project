@@ -1,0 +1,67 @@
+criar sistema de permissões (roles)
+ 	-> admin
+ 	-> gestor de obra
+	-> financeiro
+ 	-> pedreiro
+
+pedreiro (fluxo próprio)
+ 	-> acesso apenas à tela de pedidos de material
+ 	-> criar pedido com: item, quantidade, observação, foto
+ 	-> visualizar status do pedido
+ 	-> histórico de pedidos
+
+pedido de material (novo módulo)
+ 	-> status: pendente / aprovado / recusado / comprado
+ 	-> gestor pode aprovar ou recusar
+ 	-> ao aprovar -> opção de gerar lançamento financeiro automático
+ 	-> vincular pedido à obra
+
+trocar banco de dados
+ 	-> usar PostgreSQL
+ 	-> usar JSONB para campos dinâmicos
+ 	-> preparar migrations (Alembic)
+ 	-> usar ORM (SQLAlchemy)
+
+infraestrutura banco
+ 	-> usar banco gerenciado (ex: Supabase ou Railway)
+ 	-> backup automático
+ 	-> acesso seguro
+
+
+melhorar parte financeira
+
+fluxo de caixa
+ 	-> entradas
+ 	-> saídas
+ 	-> saldo atual por obra
+ 	-> saldo geral
+
+organização financeira
+ 	-> categorias (material, mão de obra, etc)
+ 	-> conta pagadora
+ 	-> forma de pagamento
+ 	-> centro de custo = obra
+
+lançamentos
+	-> anexar recibos/imagens
+ 	-> histórico de edição (auditoria)
+ 	-> quem criou / editou
+
+parcelamentos
+ 	-> dividir pagamentos
+ 	-> controlar parcelas (pendente / pago / atrasado)
+
+orçamento
+ 	-> valor orçado por obra
+ 	-> comparação: orçado vs realizado
+	-> alerta de estouro
+
+relatórios
+ 	-> gastos por categoria
+ 	-> evolução de gastos no tempo
+ 	-> comparação entre obras
+
+segurança
+ 	-> controle de acesso por obra
+ 	-> permissões por ação (não só tipo de usuário)
+ 	-> log de ações (auditoria completa)

@@ -135,16 +135,35 @@ export const api = {
     return callApi(`${API_URL}/usuarios`);
   },
 
-  async createUsuario(username, password, is_admin) {
+  async createUsuario(username, password, is_admin, role = 'prestador') {
     return callApi(`${API_URL}/usuarios`, {
       method: 'POST',
-      body: JSON.stringify({ username, password, is_admin })
+      body: JSON.stringify({ username, password, is_admin, role })
     });
   },
 
   async deleteUsuario(id) {
     return callApi(`${API_URL}/usuarios/${id}`, {
       method: 'DELETE'
+    });
+  },
+
+  // Requisições de Materiais
+  async getRequisicoes() {
+    return callApi(`${API_URL}/requisicoes`);
+  },
+
+  async createRequisicao(dados) {
+    return callApi(`${API_URL}/requisicoes`, {
+      method: 'POST',
+      body: JSON.stringify(dados)
+    });
+  },
+
+  async updateRequisicaoStatus(id, status) {
+    return callApi(`${API_URL}/requisicoes/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status })
     });
   }
 };

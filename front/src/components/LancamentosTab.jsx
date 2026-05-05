@@ -1,6 +1,7 @@
 import { FORMAS } from "../data/constants";
 import { fmt, parseVal } from "../utils/format";
 import { inputStyle, btnStyle, td, catColor } from "../utils/styles";
+import { Search, Pencil, Trash2 } from "lucide-react";
 
 export function LancamentosTab({
   projetoAtivo,
@@ -17,13 +18,15 @@ export function LancamentosTab({
 }) {
   if (!projetoAtivo) return null;
 
-  const colunas = projetoAtivo.colunas;
+  const colunas = projetoAtivo.colunas || [];
 
   return (
     <>
       <div className="filtros-bar">
         <div className="filtro-item">
-          <div className="filtro-label">🔍 Buscar</div>
+          <div className="filtro-label" style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <Search size={14} /> Buscar
+          </div>
           <input value={filtros.busca} onChange={e=>setFiltros(f=>({...f,busca:e.target.value}))} placeholder="Busca geral..." style={{...inputStyle,margin:0}}/>
         </div>
         
@@ -103,12 +106,14 @@ export function LancamentosTab({
                 })}
                 <td style={td}>
                   <div style={{display:"flex",gap:4}}>
-                    <button onClick={()=>startEdit(d)} style={{border:"none",background:"#dbeafe",color:"#2563eb",borderRadius:4,padding:"3px 8px",cursor:"pointer",fontSize:12}}>✏️</button>
+                    <button onClick={()=>startEdit(d)} style={{border:"none",background:"#dbeafe",color:"#2563eb",borderRadius:4,padding:"4px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}} title="Editar">
+                      <Pencil size={14} />
+                    </button>
                     <button onClick={() => {
                       askConfirm({
                         title: "Excluir lançamento?",
                         message: "Esta ação não pode ser desfeita.",
-                        icon: "🗑️",
+                        icon: <Trash2 size={20} color="#ef4444" />,
                         confirmText: "Excluir",
                         onConfirm: async () => {
                           try {
@@ -120,7 +125,9 @@ export function LancamentosTab({
                           }
                         }
                       });
-                    }} style={{border:"none",background:"#fee2e2",color:"#dc2626",borderRadius:4,padding:"3px 8px",cursor:"pointer",fontSize:12}}>🗑️</button>
+                    }} style={{border:"none",background:"#fee2e2",color:"#dc2626",borderRadius:4,padding:"4px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}} title="Excluir">
+                      <Trash2 size={14} />
+                    </button>
                   </div>
                 </td>
               </tr>
