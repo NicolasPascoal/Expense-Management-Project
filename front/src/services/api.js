@@ -1,7 +1,7 @@
-const API_URL = '/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 const getHeaders = () => {
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   return {
     'Content-Type': 'application/json',
     'Authorization': token ? `Bearer ${token}` : ''
@@ -15,8 +15,8 @@ async function callApi(url, options = {}) {
   });
 
   if (response.status === 401) {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
     window.dispatchEvent(new Event('auth-error'));
     throw new Error('Sessão expirada. Faça login novamente.');
   }
@@ -36,8 +36,8 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ username, password })
     });
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('user', JSON.stringify(data.user));
+    sessionStorage.setItem('token', data.token);
+    sessionStorage.setItem('user', JSON.stringify(data.user));
     return data;
   },
 
@@ -164,6 +164,31 @@ export const api = {
     return callApi(`${API_URL}/requisicoes/${id}/status`, {
       method: 'PUT',
       body: JSON.stringify({ status })
+    });
+  },
+
+  // Tarefas
+  async getTarefas() {
+    return callApi(`${API_URL}/tarefas`);
+  },
+
+  async createTarefa(dados) {
+    return callApi(`${API_URL}/tarefas`, {
+      method: 'POST',
+      body: JSON.stringify(dados)
+    });
+  },
+
+  async updateTarefa(id, dados) {
+    return callApi(`${API_URL}/tarefas/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(dados)
+    });
+  },
+
+  async deleteTarefa(id) {
+    return callApi(`${API_URL}/tarefas/${id}`, {
+      method: 'DELETE'
     });
   }
 };

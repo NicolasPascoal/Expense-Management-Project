@@ -11,6 +11,7 @@ import { ContasTab } from "./components/ContasTab";
 import { ServicosTab } from "./components/ServicosTab";
 import { AdminTab } from "./components/AdminTab";
 import { RequisicoesTab } from "./components/RequisicoesTab";
+import { TarefasTab } from "./components/TarefasTab";
 import { btnStyle } from "./utils/styles";
 import {
   LayoutDashboard,
@@ -23,7 +24,8 @@ import {
   FileDown,
   FileUp,
   LogOut,
-  Construction
+  Construction,
+  ListTodo
 } from "lucide-react";
 
 export default function App() {
@@ -31,8 +33,8 @@ export default function App() {
 
   // Garantir que o prestador caia na aba correta se estiver em uma aba proibida
   useEffect(() => {
-    if (expenses.user?.role === "prestador" && !expenses.user?.is_admin && expenses.tab !== "requisicoes") {
-      expenses.setTab("requisicoes");
+    if (expenses.user?.role === "prestador" && !expenses.user?.is_admin && expenses.tab !== "requisicoes" && expenses.tab !== "tarefas") {
+      expenses.setTab("tarefas");
     }
   }, [expenses.user?.role, expenses.user?.is_admin, expenses.tab]);
 
@@ -47,6 +49,7 @@ export default function App() {
     ["dashboard", "Dashboard", LayoutDashboard],
     ["lancamentos", "Lançamentos", ClipboardList],
     ["requisicoes", "Materiais", ClipboardCheck],
+    ["tarefas", "Tarefas", ListTodo],
     ["contas", "Por Conta", Wallet],
     ["servicos", "Serviços", Wrench]
   ];
@@ -54,7 +57,10 @@ export default function App() {
   // Filtra as abas baseado no papel do usuário
   let tabs = allTabs;
   if (expenses.user?.role === "prestador" && !expenses.user?.is_admin) {
-    tabs = [["requisicoes", "Materiais", ClipboardCheck]];
+    tabs = [
+      ["tarefas", "Tarefas", ListTodo],
+      ["requisicoes", "Materiais", ClipboardCheck]
+    ];
   }
 
   if (expenses.user?.is_admin) {
@@ -129,6 +135,7 @@ export default function App() {
         {expenses.tab === "dashboard" && <DashboardTab {...expenses} />}
         {expenses.tab === "lancamentos" && <LancamentosTab {...expenses} />}
         {expenses.tab === "requisicoes" && <RequisicoesTab {...expenses} />}
+        {expenses.tab === "tarefas" && <TarefasTab {...expenses} />}
         {expenses.tab === "contas" && <ContasTab {...expenses} />}
         {expenses.tab === "servicos" && <ServicosTab {...expenses} />}
         {expenses.tab === "admin" && <AdminTab {...expenses} />}

@@ -1,19 +1,21 @@
 import sqlite3
 import os
 
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'database.db')
+# Define o caminho do banco de dados baseado no .env ou usa o padrão database.db
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+DB_NAME = os.getenv("DB_FILENAME", "database.db")
+DB_PATH = os.path.join(BASE_DIR, DB_NAME)
 
 def get_db_connection():
     conn = sqlite3.connect(DB_PATH)
-    conn.execute("PRAGMA foreign_keys = ON") # Habilita suporte a chaves estrangeiras
-    conn.row_factory = sqlite3.Row  # Permite acessar colunas por nome
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.row_factory = sqlite3.Row  
     return conn
 
 def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Tabela de Projetos
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS projetos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -22,16 +24,13 @@ def init_db():
         )
     ''')
 
-    # Garantir que existe ao menos um projeto para as chaves estrangeiras
     cursor.execute("SELECT COUNT(*) FROM projetos")
     default_cols = '[{"name":"data","label":"Data","type":"text"},{"name":"categoria","label":"Categoria","type":"select"},{"name":"item","label":"Item / Descrição","type":"text"},{"name":"fornecedor","label":"Fornecedor","type":"text"},{"name":"quantidade","label":"Qtd","type":"number"},{"name":"unitario","label":"Unitário (R$)","type":"text"},{"name":"valor","label":"Valor Pago (R$)","type":"text"},{"name":"forma","label":"Forma","type":"select"},{"name":"conta","label":"Conta","type":"select"},{"name":"obs","label":"Observações","type":"textarea"}]'
     if cursor.fetchone()[0] == 0:
         cursor.execute("INSERT INTO projetos (id, nome, colunas) VALUES (?, ?, ?)", (1, "Projeto Principal", default_cols))
     else:
-        # Garante que o projeto 1 tenha colunas se estiver vazio (correção para bancos já criados)
         cursor.execute("UPDATE projetos SET colunas = ? WHERE id = 1 AND (colunas IS NULL OR colunas = '[]' OR colunas = '')", (default_cols,))
 
-    # Nova tabela de lançamentos (versão 2)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS lancamentos_v2 (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,7 +40,6 @@ def init_db():
         )
     ''')
     
-    # Mantemos a tabela antiga por enquanto
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS lancamentos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -58,7 +56,6 @@ def init_db():
         )
     ''')
 
-    # Tabela de Categorias
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS categorias (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -73,7 +70,6 @@ def init_db():
     except:
         pass
 
-    # Tabela de Contas
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS contas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -88,7 +84,6 @@ def init_db():
     except:
         pass
 
-    # Tabela de Usuarios
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS usuarios (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -118,7 +113,6 @@ def init_db():
         cursor.execute("UPDATE usuarios SET is_admin = 1, role = 'admin' WHERE username = 'admin'")
         cursor.execute("UPDATE usuarios SET role = 'admin' WHERE is_admin = 1")
 
-    # Tabela de Requisições de Materiais
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS requisicoes_materiais (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -129,6 +123,19 @@ def init_db():
             status TEXT DEFAULT 'Pendente',
             data_criacao DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (usuario_id) REFERENCES usuarios (id) ON DELETE CASCADE
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS tarefas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            titulo TEXT NOT NULL,
+            descricao TEXT,
+            prestador_id INTEGER,
+            status TEXT DEFAULT 'Pendente',
+            observacoes TEXT,
+            data_criacao DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (prestador_id) REFERENCES usuarios (id) ON DELETE CASCADE
         )
     ''')
 

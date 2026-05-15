@@ -20,11 +20,40 @@ export function useExpenses() {
   const [projetos, setProjetos] = useState([]);
   const [projetoAtivo, setProjetoAtivo] = useState(null);
   const [showProjectModal, setShowProjectModal] = useState(false);
-  const [token, setToken] = useState(localStorage.getItem("token"));
-  const [user, setUser] = useState(JSON.parse(localStorage.getItem("user") || "null"));
+  const [token, setToken] = useState(sessionStorage.getItem("token"));
+  const [user, setUser] = useState(JSON.parse(sessionStorage.getItem("user") || "null"));
   const [categoriasDb, setCategoriasDb] = useState([]);
   const [contasDb, setContasDb] = useState([]);
   const [requisicoes, setRequisicoes] = useState([]);
+  const [tarefas, setTarefas] = useState([]);
+  const [usuarios, setUsuarios] = useState([]);
+
+  // Inatividade (15 minutos)
+  const TIMEOUT_MS = 15 * 60 * 1000;
+
+  useEffect(() => {
+    if (!token) return;
+
+    let timeout;
+    
+    const resetTimer = () => {
+      if (timeout) clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        logout();
+        alert("Sessão expirada por inatividade. Faça login novamente.");
+      }, TIMEOUT_MS);
+    };
+
+    const events = ["mousedown", "mousemove", "keypress", "scroll", "touchstart"];
+    events.forEach(e => document.addEventListener(e, resetTimer));
+    
+    resetTimer();
+
+    return () => {
+      if (timeout) clearTimeout(timeout);
+      events.forEach(e => document.removeEventListener(e, resetTimer));
+    };
+  }, [token]);
 
   useEffect(() => {
     if (token) {
@@ -59,6 +88,52 @@ export function useExpenses() {
     }
   };
 
+  const fetchTarefas = async () => {
+    try {
+      const res = await api.getTarefas();
+      setTarefas(res);
+    } catch (e) {
+      console.error("Erro ao buscar tarefas:", e);
+    }
+  };
+
+  const createTarefa = async (dados) => {
+    try {
+      await api.createTarefa(dados);
+      fetchTarefas();
+    } catch (e) {
+      alert("Erro ao criar tarefa: " + e.message);
+    }
+  };
+
+  const updateTarefa = async (id, dados) => {
+    try {
+      await api.updateTarefa(id, dados);
+      fetchTarefas();
+    } catch (e) {
+      alert("Erro ao atualizar tarefa: " + e.message);
+    }
+  };
+
+  const deleteTarefa = async (id) => {
+    try {
+      await api.deleteTarefa(id);
+      fetchTarefas();
+    } catch (e) {
+      alert("Erro ao deletar tarefa: " + e.message);
+    }
+  };
+
+  const fetchUsuarios = async () => {
+    if (!user?.is_admin) return;
+    try {
+      const res = await api.getUsuarios();
+      setUsuarios(res);
+    } catch (e) {
+      console.error("Erro ao buscar usuários:", e);
+    }
+  };
+
   useEffect(() => {
     const handleAuthError = () => {
       setToken(null);
@@ -70,12 +145,14 @@ export function useExpenses() {
   useEffect(() => {
     if (token) {
       fetchProjetos();
+      fetchTarefas();
+      fetchUsuarios();
     }
   }, [token]);
 
   const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("user");
     setToken(null);
     setUser(null);
   };
@@ -318,7 +395,12 @@ export function useExpenses() {
       // Mas por enquanto mantemos o padrão que atende a maioria das obras
       const resp = await fetch("https://api.anthropic.com/v1/messages",{
         method:"POST",
-        headers:{"Content-Type":"application/json"},
+        headers:{
+          "Content-Type":"application/json",
+          "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+          "dangerously-allow-browser": "true"
+        },
         body: JSON.stringify({
           model:"claude-sonnet-4-20250514",
           max_tokens:1000,
@@ -410,6 +492,12 @@ export function useExpenses() {
         }
       }
 
+      // Get existing categories/accounts to avoid duplicates
+      let existingCats = categoriasDb.map(c => c.nome.toLowerCase());
+      let existingCtas = contasDb.map(c => c.nome.toLowerCase());
+      const newCatsCreated = new Set();
+      const newCtasCreated = new Set();
+
       let count = 0;
       for(let i = 1; i < lines.length; i++){
         const vals = parseCSVLine(lines[i]);
@@ -428,7 +516,26 @@ export function useExpenses() {
             const val = vals[indexToUse] || "";
             payload[col.name] = val;
             
-            if (val.trim().length > 0) hasData = true;
+            if (val.trim().length > 0) {
+              hasData = true;
+
+              // Auto-criar categorias novas encontradas no CSV
+              if (col.name === 'categoria') {
+                const name = val.trim();
+                if (!existingCats.includes(name.toLowerCase())) {
+                  newCatsCreated.add(name);
+                  existingCats.push(name.toLowerCase());
+                }
+              }
+              // Auto-criar contas novas encontradas no CSV
+              if (col.name === 'conta') {
+                const name = val.trim();
+                if (!existingCtas.includes(name.toLowerCase())) {
+                  newCtasCreated.add(name);
+                  existingCtas.push(name.toLowerCase());
+                }
+              }
+            }
         });
 
         if (!hasData) continue; // Pula se a linha não tiver nenhum dado real
@@ -440,8 +547,19 @@ export function useExpenses() {
           console.error("Erro ao importar linha", i, e);
         }
       }
+
+      // Sincroniza as novas categorias e contas com o banco de dados
+      const creations = [];
+      newCatsCreated.forEach(cat => creations.push(api.createCategoria(cat, targetProjeto.id)));
+      newCtasCreated.forEach(cta => creations.push(api.createConta(cta, targetProjeto.id)));
+      
+      if (creations.length > 0) {
+        await Promise.allSettled(creations);
+        fetchServicos();
+      }
+
       fetchDados();
-      alert(`${count} registros importados com sucesso!`);
+      alert(`${count} registros importados com sucesso!${newCatsCreated.size > 0 ? `\n${newCatsCreated.size} novas categorias criadas.` : ""}`);
     };
     reader.readAsText(file, "UTF-8");
     e.target.value = "";
@@ -483,6 +601,13 @@ export function useExpenses() {
     fetchRequisicoes,
     createRequisicao,
     updateRequisicaoStatus,
+    tarefas,
+    fetchTarefas,
+    createTarefa,
+    updateTarefa,
+    deleteTarefa,
+    usuarios,
+    fetchUsuarios,
     token,
     setToken,
     logout,

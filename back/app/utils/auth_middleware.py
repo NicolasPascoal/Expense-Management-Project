@@ -1,8 +1,9 @@
 import jwt
+import os
 from functools import wraps
 from flask import request, jsonify, g
 
-SECRET_KEY = "sua_chave_secreta_super_segura"
+SECRET_KEY = os.getenv("SECRET_KEY", "sua_chave_secreta_padrao_se_nao_definida")
 
 def token_required(f):
     @wraps(f)

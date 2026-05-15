@@ -1,2 +1,22 @@
-flask
-flask-cors
+# Core Flask
+Flask==3.0.3
+Flask-Cors==4.0.0
+Werkzeug==3.1.8
+
+# Authentication
+PyJWT==2.8.0
+
+# Database & Migration (Future-proofing for MySQL/PostgreSQL)
+Flask-SQLAlchemy==3.1.1
+Flask-Migrate==4.0.7
+SQLAlchemy==2.0.29
+
+# Database Drivers
+psycopg2-binary==2.9.9  # For PostgreSQL
+mysql-connector-python==8.3.0  # For MySQL
+
+# Utilities
+python-dotenv==1.0.1
+
+# Production Server
+gunicorn==22.0.0

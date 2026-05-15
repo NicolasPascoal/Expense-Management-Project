@@ -1,9 +1,10 @@
 import jwt
 import datetime
+import os
 from app.database.db import get_db_connection
 from werkzeug.security import check_password_hash
 
-SECRET_KEY = "sua_chave_secreta_super_segura" # Em produção, use env var
+SECRET_KEY = os.getenv("SECRET_KEY", "sua_chave_secreta_padrao_se_nao_definida")
 
 def login_usuario(username, password):
     conn = get_db_connection()

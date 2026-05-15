@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { api } from "../services/api";
 import { btnStyle, inputStyle } from "../utils/styles";
 
-export function AdminTab({ user, askConfirm }) {
-  const [usuarios, setUsuarios] = useState([]);
+export function AdminTab({ user, askConfirm, usuarios, fetchUsuarios }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
@@ -12,19 +11,9 @@ export function AdminTab({ user, askConfirm }) {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    // Apenas tenta buscar se a aba for admin (evita erros de permissão no console)
+    // Sincroniza usuários ao abrir a aba
     fetchUsuarios();
   }, []);
-
-  const fetchUsuarios = async () => {
-    if (!user || !user.is_admin) return;
-    try {
-      const data = await api.getUsuarios();
-      setUsuarios(data);
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
   const handleCreateUser = async (e) => {
     e.preventDefault();
