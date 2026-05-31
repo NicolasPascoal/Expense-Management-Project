@@ -1,21 +1,14 @@
-import sqlite3
-import os
 import json
-
-DB_PATH = os.path.join(os.path.dirname(__file__), 'database.db')
+from app.database.db import get_db_connection
 
 def check_db():
-    if not os.path.exists(DB_PATH):
-        print(f"Database not found at {DB_PATH}")
-        return
-        
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     print("--- Projetos ---")
     cursor.execute("SELECT id, nome, colunas FROM projetos")
     for row in cursor.fetchall():
-        cols = row[2]
+        cols = row['colunas']
         is_json = False
         try:
             if cols:
@@ -23,12 +16,12 @@ def check_db():
                 is_json = True
         except:
             pass
-        print(f"ID: {row[0]}, Nome: {row[1]}, Colunas: {cols[:50]}... (Valid JSON: {is_json})")
+        print(f"ID: {row['id']}, Nome: {row['nome']}, Colunas: {cols[:50] if cols else ''}... (Valid JSON: {is_json})")
         
     print("\n--- Usuarios ---")
     cursor.execute("SELECT id, username, is_admin FROM usuarios")
     for row in cursor.fetchall():
-        print(f"ID: {row[0]}, Username: {row[1]}, Admin: {row[2]}")
+        print(f"ID: {row['id']}, Username: {row['username']}, Admin: {row['is_admin']}")
         
     conn.close()
 

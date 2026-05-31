@@ -3,7 +3,12 @@ import os
 from functools import wraps
 from flask import request, jsonify, g
 
-SECRET_KEY = os.getenv("SECRET_KEY", "sua_chave_secreta_padrao_se_nao_definida")
+SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError(
+        "FATAL: A variavel de ambiente JWT_SECRET_KEY nao esta definida no .env! "
+        "Gere uma chave segura e adicione ao seu arquivo .env antes de iniciar o servidor."
+    )
 
 def token_required(f):
     @wraps(f)

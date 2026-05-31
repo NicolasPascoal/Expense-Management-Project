@@ -1,10 +1,5 @@
-import sqlite3
 import json
-import os
-
-# Configurações de caminhos
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, 'database.db')
+from app.database.db import get_db_connection
 
 DEFAULT_COLUMNS = [
     {"name": "data", "label": "Data", "type": "text"},
@@ -20,25 +15,20 @@ DEFAULT_COLUMNS = [
 ]
 
 def migrate():
-    if not os.path.exists(DB_PATH):
-        print("Banco de dados não encontrado. Nada para migrar.")
-        return
-
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = get_db_connection()
     cursor = conn.cursor()
 
-    # 1. Garantir que as novas tabelas existem (caso o app não tenha rodado ainda)
+    # 1. Garantir que as novas tabelas existem
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS projetos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT NOT NULL,
+            id SERIAL PRIMARY KEY,
+            nome VARCHAR(255) NOT NULL,
             colunas TEXT
         )
     ''')
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS lancamentos_v2 (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             projeto_id INTEGER NOT NULL,
             dados TEXT NOT NULL,
             FOREIGN KEY (projeto_id) REFERENCES projetos (id) ON DELETE CASCADE
@@ -49,8 +39,8 @@ def migrate():
     try:
         cursor.execute("SELECT * FROM lancamentos")
         old_data = cursor.fetchall()
-    except sqlite3.OperationalError:
-        print("Tabela 'lancamentos' antiga não existe. Criando projeto inicial vazio.")
+    except Exception:
+        print("Tabela 'lancamentos' antiga não existe ou erro ao ler. Criando projeto inicial vazio.")
         old_data = []
 
     # 3. Criar projeto padrão se não existir
@@ -64,14 +54,13 @@ def migrate():
             ('Obra Itanhaém', json.dumps(DEFAULT_COLUMNS))
         )
         projeto_id = cursor.lastrowid
+        cursor.execute("SELECT setval(pg_get_serial_sequence('projetos', 'id'), COALESCE((SELECT MAX(id) FROM projetos), 1))")
     else:
         projeto_id = projeto['id']
 
     # 4. Migrar dados
     if old_data:
         print(f"Migrando {len(old_data)} registros para a nova estrutura...")
-        # Verificar se já foram migrados (opcional, aqui vamos apenas migrar o que não estiver na v2)
-        # Para simplificar, vamos migrar tudo se a v2 estiver vazia
         cursor.execute("SELECT count(*) as count FROM lancamentos_v2 WHERE projeto_id = ?", (projeto_id,))
         if cursor.fetchone()['count'] == 0:
             for row in old_data:

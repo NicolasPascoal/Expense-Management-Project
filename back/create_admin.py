@@ -1,12 +1,5 @@
-import sqlite3
-import os
+from app.database.db import get_db_connection
 from werkzeug.security import generate_password_hash
-
-DB_PATH = os.path.join(os.path.dirname(__file__), 'database.db')
-
-def get_db_connection():
-    conn = sqlite3.connect(DB_PATH)
-    return conn
 
 def create_admin():
     conn = get_db_connection()
@@ -18,22 +11,22 @@ def create_admin():
     
     hashed_password = generate_password_hash(password)
     
-    # Check if user exists
+    # Verifica se o usuário já existe
     cursor.execute("SELECT id FROM usuarios WHERE username = ?", (username,))
     user = cursor.fetchone()
     
     if user:
-        print(f"User {username} already exists. Updating password, admin status and role...")
+        print(f"Usuário {username} já existe. Atualizando senha, privilégios de admin e cargo...")
         cursor.execute("UPDATE usuarios SET password = ?, is_admin = ?, role = ? WHERE username = ?", 
                        (hashed_password, is_admin, 'admin', username))
     else:
-        print(f"Creating user {username}...")
+        print(f"Criando usuário {username}...")
         cursor.execute("INSERT INTO usuarios (username, password, is_admin, role) VALUES (?, ?, ?, ?)", 
                        (username, hashed_password, is_admin, 'admin'))
     
     conn.commit()
     conn.close()
-    print("Done!")
+    print("Sucesso!")
 
 if __name__ == "__main__":
     create_admin()

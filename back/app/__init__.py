@@ -9,10 +9,16 @@ load_dotenv()
 def create_app():
     app = Flask(__name__)
     
-    # Habilita CORS para permitir que o frontend acesse os endpoints
-    CORS(app)
+    # Configura CORS com origens permitidas do .env
+    # Em producao, restringe para aceitar apenas requisicoes do seu frontend
+    allowed_origins = os.getenv("CORS_ALLOWED_ORIGINS", "*")
+    if allowed_origins != "*":
+        origins_list = [o.strip() for o in allowed_origins.split(",")]
+        CORS(app, origins=origins_list)
+    else:
+        CORS(app)
     
-    # Inicializa o banco de dados (cria o arquivo database.db e a tabela se não existirem)
+    # Inicializa o schema do banco de dados PostgreSQL
     init_db()
     
     # Importar e registrar os blueprints (rotas)

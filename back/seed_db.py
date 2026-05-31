@@ -1,11 +1,10 @@
 import json
-import sqlite3
 import os
+from app.database.db import get_db_connection
 
 # Caminhos
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 JSON_PATH = os.path.join(os.path.dirname(BASE_DIR), 'front', 'src', 'data', 'data.json')
-DB_PATH = os.path.join(BASE_DIR, 'database.db')
 
 def seed():
     if not os.path.exists(JSON_PATH):
@@ -15,14 +14,12 @@ def seed():
     with open(JSON_PATH, 'r', encoding='utf-8') as f:
         dados = json.load(f)
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cursor = conn.cursor()
 
-    print(f"Importando {len(dados)} registros...")
+    print(f"Importando {len(dados)} registros para a tabela 'lancamentos'...")
 
     for item in dados:
-       
-        
         cursor.execute('''
             INSERT INTO lancamentos (data, categoria, item, fornecedor, quantidade, unitario, valor, forma, conta, obs)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)

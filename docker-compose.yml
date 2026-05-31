@@ -1,0 +1,50 @@
+version: "3.8"
+
+services:
+  db_postgres:
+    image: postgres:15-alpine
+    container_name: meu_projeto_db
+    restart: always
+    environment:
+      - POSTGRES_USER=nicolas
+      - POSTGRES_PASSWORD=suasenha_aqui
+      - POSTGRES_DB=meu_sistema_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - rede_projeto
+
+  # --- BACK-END (FLASK) ---
+  backend:
+    build: ./backend
+    container_name: meu_projeto_backend
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:K33ps@f&@db_postgres:5432/meu_sistema_db
+    depends_on:
+      - db_postgres
+    networks:
+      - rede_projeto
+
+  # --- FRONT-END (REACT / TS) ---
+  frontend:
+    build: ./frontend
+    container_name: meu_projeto_frontend
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - rede_projeto
+
+volumes:
+  postgres_data:
+
+networks:
+  rede_projeto:
+    driver: bridge

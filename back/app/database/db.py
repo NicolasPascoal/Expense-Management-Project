@@ -1,153 +1,204 @@
-import sqlite3
+import psycopg2
+from psycopg2.extras import DictCursor
+from dotenv import load_dotenv
 import os
 
-# Define o caminho do banco de dados baseado no .env ou usa o padrão database.db
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DB_NAME = os.getenv("DB_FILENAME", "database.db")
-DB_PATH = os.path.join(BASE_DIR, DB_NAME)
+# Carrega as variáveis de ambiente do arquivo .env
+load_dotenv()
+
+PG_USER = os.getenv("PGUSER", "postgres")
+PG_PASSWORD = os.getenv("PGPASSWORD", "postgres")
+PG_HOST = os.getenv("PGHOST", "localhost")
+PG_PORT = os.getenv("PGPORT", "5432")
+PG_DATABASE = os.getenv("PGDATABASE", "expense_management")
+
+class PostgreSQLRow:
+    """
+    Wrapper para emular perfeitamente o comportamento de sqlite3.Row,
+    suportando acesso por chave (nome da coluna), índice (posição),
+    iteração e conversão via dict().
+    """
+    def __init__(self, cursor, row_tuple):
+        self._fields = [desc[0] for desc in cursor.description]
+        self._data = row_tuple
+        self._mapping = {field: val for field, val in zip(self._fields, row_tuple)}
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return self._data[key]
+        return self._mapping[key]
+
+    def keys(self):
+        return self._fields
+
+    def __iter__(self):
+        return iter(self._data)
+
+    def __len__(self):
+        return len(self._data)
+
+    def get(self, key, default=None):
+        return self._mapping.get(key, default)
+
+    def items(self):
+        return self._mapping.items()
+
+    def __repr__(self):
+        return f"PostgreSQLRow {dict(self.items())}"
+
+class PostgreSQLCursorWrapper:
+    """
+    Wrapper para o cursor do psycopg2.
+    Traduz automaticamente placeholders ? do SQLite para %s do PostgreSQL,
+    e emula a propriedade lastrowid do SQLite usando lastval() do PostgreSQL.
+    """
+    def __init__(self, cursor, conn_wrapper):
+        self._cursor = cursor
+        self._conn_wrapper = conn_wrapper
+        self._lastrowid = None
+
+    @property
+    def lastrowid(self):
+        return self._lastrowid
+
+    @property
+    def rowcount(self):
+        return self._cursor.rowcount
+
+    def execute(self, sql, params=None):
+        # 1. Ignorar comandos PRAGMA específicos do SQLite
+        if "PRAGMA" in sql.upper():
+            return self
+
+        # 2. Traduzir o placeholder "?" do SQLite para "%s" do PostgreSQL
+        sql_pg = sql.replace('?', '%s')
+
+        # 3. Executar a query
+        try:
+            if params:
+                # Garante que os parâmetros sejam passados como tupla ou lista
+                if not isinstance(params, (tuple, list)):
+                    params = (params,)
+                self._cursor.execute(sql_pg, params)
+            else:
+                self._cursor.execute(sql_pg)
+        except Exception as e:
+            print(f"\n[QUERY FAILED] {sql_pg} | Params: {params} | Error: {e}")
+            raise e
+
+        # 4. Capturar lastrowid para comandos INSERT usando a função lastval()
+        # Apenas se o INSERT não especificar a coluna 'id' explicitamente (para evitar abortar a transação)
+        stripped_sql = sql.strip().upper()
+        if stripped_sql.startswith("INSERT"):
+            has_explicit_id = False
+            first_paren = stripped_sql.find("(")
+            second_paren = stripped_sql.find(")")
+            if first_paren != -1 and second_paren != -1:
+                cols_part = stripped_sql[first_paren+1:second_paren]
+                cols = [c.strip() for c in cols_part.split(",")]
+                if "ID" in cols:
+                    has_explicit_id = True
+            
+            if not has_explicit_id:
+                try:
+                    temp_cursor = self._conn_wrapper._conn.cursor()
+                    temp_cursor.execute("SELECT lastval()")
+                    self._lastrowid = temp_cursor.fetchone()[0]
+                    temp_cursor.close()
+                except Exception:
+                    self._lastrowid = None
+
+        return self
+
+    def executemany(self, sql, seq_of_params):
+        if "PRAGMA" in sql.upper():
+            return self
+
+        sql_pg = sql.replace('?', '%s')
+        self._cursor.executemany(sql_pg, seq_of_params)
+        return self
+
+    def fetchone(self):
+        row = self._cursor.fetchone()
+        if row is None:
+            return None
+        return PostgreSQLRow(self._cursor, row)
+
+    def fetchall(self):
+        rows = self._cursor.fetchall()
+        return [PostgreSQLRow(self._cursor, row) for row in rows]
+
+    def close(self):
+        self._cursor.close()
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        row = self._cursor.fetchone()
+        if row is None:
+            raise StopIteration
+        return PostgreSQLRow(self._cursor, row)
+
+class PostgreSQLConnectionWrapper:
+    """
+    Wrapper para a conexão do psycopg2 para emular comportamentos específicos do sqlite3,
+    como o método .execute() diretamente na conexão.
+    """
+    def __init__(self, conn):
+        self._conn = conn
+
+    def cursor(self, *args, **kwargs):
+        # Retorna o nosso CursorWrapper em vez do cursor cru do psycopg2
+        return PostgreSQLCursorWrapper(self._conn.cursor(), self)
+
+    def commit(self):
+        self._conn.commit()
+
+    def rollback(self):
+        self._conn.rollback()
+
+    def close(self):
+        self._conn.close()
+
+    def execute(self, sql, params=None):
+        cur = self.cursor()
+        cur.execute(sql, params)
+        return cur
 
 def get_db_connection():
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("PRAGMA foreign_keys = ON")
-    conn.row_factory = sqlite3.Row  
-    return conn
+    """
+    Estabelece uma conexão com o banco de dados PostgreSQL e retorna o wrapper compatível.
+    """
+    conn = psycopg2.connect(
+        user=PG_USER,
+        password=PG_PASSWORD,
+        host=PG_HOST,
+        port=PG_PORT,
+        database=PG_DATABASE
+    )
+    return PostgreSQLConnectionWrapper(conn)
+
+from app.database.modelProjetos import create_projetos_tables
+from app.database.modelCategoria import create_categorias_tables
+from app.database.modelUsuarios import create_usuarios_tables
+from app.database.modelRequisicoes import create_requisicoes_tables
+from app.database.modelTarefas import create_tarefas_tables
 
 def init_db():
+    """
+    Inicializa o schema do banco de dados PostgreSQL se as tabelas não existirem.
+    Organizado por modelos em arquivos separados.
+    """
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS projetos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT NOT NULL,
-            colunas TEXT -- JSON string com a definição das colunas
-        )
-    ''')
-
-    cursor.execute("SELECT COUNT(*) FROM projetos")
-    default_cols = '[{"name":"data","label":"Data","type":"text"},{"name":"categoria","label":"Categoria","type":"select"},{"name":"item","label":"Item / Descrição","type":"text"},{"name":"fornecedor","label":"Fornecedor","type":"text"},{"name":"quantidade","label":"Qtd","type":"number"},{"name":"unitario","label":"Unitário (R$)","type":"text"},{"name":"valor","label":"Valor Pago (R$)","type":"text"},{"name":"forma","label":"Forma","type":"select"},{"name":"conta","label":"Conta","type":"select"},{"name":"obs","label":"Observações","type":"textarea"}]'
-    if cursor.fetchone()[0] == 0:
-        cursor.execute("INSERT INTO projetos (id, nome, colunas) VALUES (?, ?, ?)", (1, "Projeto Principal", default_cols))
-    else:
-        cursor.execute("UPDATE projetos SET colunas = ? WHERE id = 1 AND (colunas IS NULL OR colunas = '[]' OR colunas = '')", (default_cols,))
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS lancamentos_v2 (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            projeto_id INTEGER NOT NULL,
-            dados TEXT NOT NULL,
-            FOREIGN KEY (projeto_id) REFERENCES projetos (id) ON DELETE CASCADE
-        )
-    ''')
-    
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS lancamentos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            data TEXT NOT NULL,
-            categoria TEXT,
-            item TEXT,
-            fornecedor TEXT,
-            quantidade REAL,
-            unitario REAL,
-            valor REAL,
-            forma TEXT,
-            conta TEXT,
-            obs TEXT
-        )
-    ''')
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS categorias (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT NOT NULL,
-            projeto_id INTEGER,
-            FOREIGN KEY (projeto_id) REFERENCES projetos (id) ON DELETE CASCADE
-        )
-    ''')
-    try:
-        cursor.execute("ALTER TABLE categorias ADD COLUMN projeto_id INTEGER REFERENCES projetos(id) ON DELETE CASCADE")
-        cursor.execute("UPDATE categorias SET projeto_id = 1 WHERE projeto_id IS NULL")
-    except:
-        pass
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS contas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT NOT NULL,
-            projeto_id INTEGER,
-            FOREIGN KEY (projeto_id) REFERENCES projetos (id) ON DELETE CASCADE
-        )
-    ''')
-    try:
-        cursor.execute("ALTER TABLE contas ADD COLUMN projeto_id INTEGER REFERENCES projetos(id) ON DELETE CASCADE")
-        cursor.execute("UPDATE contas SET projeto_id = 1 WHERE projeto_id IS NULL")
-    except:
-        pass
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS usuarios (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL UNIQUE,
-            password TEXT NOT NULL,
-            is_admin INTEGER DEFAULT 0,
-            role TEXT DEFAULT 'prestador'
-        )
-    ''')
-    
-    try:
-        cursor.execute("ALTER TABLE usuarios ADD COLUMN is_admin INTEGER DEFAULT 0")
-    except:
-        pass 
-
-    try:
-        cursor.execute("ALTER TABLE usuarios ADD COLUMN role TEXT DEFAULT 'prestador'")
-    except:
-        pass
-
-    cursor.execute("SELECT COUNT(*) FROM usuarios")
-    if cursor.fetchone()[0] == 0:
-        from werkzeug.security import generate_password_hash
-        cursor.execute("INSERT INTO usuarios (username, password, is_admin, role) VALUES (?, ?, ?, ?)", 
-                       ("admin", generate_password_hash("admin"), 1, "admin"))
-    else:
-        cursor.execute("UPDATE usuarios SET is_admin = 1, role = 'admin' WHERE username = 'admin'")
-        cursor.execute("UPDATE usuarios SET role = 'admin' WHERE is_admin = 1")
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS requisicoes_materiais (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            usuario_id INTEGER NOT NULL,
-            nome TEXT NOT NULL,
-            funcao TEXT NOT NULL,
-            material TEXT NOT NULL,
-            status TEXT DEFAULT 'Pendente',
-            data_criacao DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (usuario_id) REFERENCES usuarios (id) ON DELETE CASCADE
-        )
-    ''')
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS tarefas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            titulo TEXT NOT NULL,
-            descricao TEXT,
-            prestador_id INTEGER,
-            status TEXT DEFAULT 'Pendente',
-            observacoes TEXT,
-            data_criacao DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (prestador_id) REFERENCES usuarios (id) ON DELETE CASCADE
-        )
-    ''')
-
-    cursor.execute("SELECT COUNT(*) FROM categorias")
-    if cursor.fetchone()[0] == 0:
-        categorias_iniciais = ["Documentação","Terraplanagem","Fundação","Ferramentas","Material de construção","Mão de obra","Equipamentos/aluguel","Taxas e impostos","Outros"]
-        cursor.executemany("INSERT INTO categorias (nome, projeto_id) VALUES (?, ?)", [(c, 1) for c in categorias_iniciais])
-
-    cursor.execute("SELECT COUNT(*) FROM contas")
-    if cursor.fetchone()[0] == 0:
-        contas_iniciais = ["FF Alves Construtora","Victor Praça Pascoal","Vanderlei Almeida Simões","SPE Luiz Pascoal"]
-        cursor.executemany("INSERT INTO contas (nome, projeto_id) VALUES (?, ?)", [(c, 1) for c in contas_iniciais])
+    # Executa a criação de cada tabela na ordem de dependência correta
+    create_projetos_tables(cursor)
+    create_usuarios_tables(cursor)
+    create_categorias_tables(cursor)
+    create_requisicoes_tables(cursor)
+    create_tarefas_tables(cursor)
     
     conn.commit()
     conn.close()
