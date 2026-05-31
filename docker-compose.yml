@@ -43,7 +43,7 @@ services:
     container_name: meu_projeto_frontend
     restart: always
     ports:
-      - "3000:80"
+      - "3050:80"
     depends_on:
       - backend
     networks:
