@@ -30,3 +30,8 @@ database.db
 # OS
 .DS_Store
 Thumbs.db
+
+# Variáveis de ambiente - NUNCA subir para o repositório
+.env
+.env.local
+.env.production

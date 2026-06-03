@@ -13,8 +13,7 @@ export function useExpenses() {
   const [deleteId, setDeleteId] = useState(null);
   const [confirmConfig, setConfirmConfig] = useState(null);
   const fileRef = useRef();
-  const receiptRef = useRef();
-  const [scanning, setScanning] = useState(false);
+
 
   // Estados de Projeto
   const [projetos, setProjetos] = useState([]);
@@ -370,61 +369,7 @@ export function useExpenses() {
     a.click();
   };
 
-  const scanReceipt = async e => {
-    const file = e.target.files[0]; if(!file) return;
-    if (!projetoAtivo) return;
 
-    setScanning(true);
-    setShowForm(true); setEditId(null); setForm({});
-    e.target.value="";
-    try {
-      const base64 = await new Promise((res,rej)=>{
-        const r=new FileReader();
-        r.onload=()=>res(r.result.split(",")[1]);
-        r.onerror=()=>rej(new Error("Erro ao ler arquivo"));
-        r.readAsDataURL(file);
-      });
-      
-      const mediaType = file.type||"image/jpeg";
-      const isPdf = mediaType==="application/pdf";
-      const contentBlock = isPdf
-        ? {type:"document",source:{type:"base64",media_type:"application/pdf",data:base64}}
-        : {type:"image",source:{type:"base64",media_type:mediaType,data:base64}};
-
-      // Aqui poderíamos adaptar o prompt dinamicamente baseado nas colunas do projeto
-      // Mas por enquanto mantemos o padrão que atende a maioria das obras
-      const resp = await fetch("https://api.anthropic.com/v1/messages",{
-        method:"POST",
-        headers:{
-          "Content-Type":"application/json",
-          "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY,
-          "anthropic-version": "2023-06-01",
-          "dangerously-allow-browser": "true"
-        },
-        body: JSON.stringify({
-          model:"claude-sonnet-4-20250514",
-          max_tokens:1000,
-          messages:[{
-            role:"user",
-            content:[
-              contentBlock,
-              {type:"text",text:`Analise este recibo e extraia as informações. Retorne APENAS um JSON válido.
-              Tente mapear para estes campos se possível: ${projetoAtivo.colunas.map(c=>c.name).join(", ")}.`}
-            ]
-          }]
-        })
-      });
-      const data = await resp.json();
-      const text = data.content.map(c=>c.text||"").join("");
-      const clean = text.replace(/```json|```/g,"").trim();
-      const parsed = JSON.parse(clean);
-      setForm(f=>({...f, ...parsed}));
-    } catch(err) {
-      alert("Erro ao ler o recibo. Tente preencher manualmente.");
-    } finally {
-      setScanning(false);
-    }
-  };
 
   const removeConta = async (id) => {
     try {
@@ -439,27 +384,24 @@ export function useExpenses() {
     const file = e.target.files[0]; if(!file) return;
     const reader = new FileReader();
     reader.onload = async ev => {
-      const content = ev.target.result;
-      const lines = content.split(/\r?\n/).filter(line => {
-        const trimmed = line.trim();
-        // Ignora linhas totalmente vazias ou que contenham apenas separadores (,,,, ou ;;;;)
-        return trimmed.length > 0 && trimmed.replace(/[,;]/g, "").length > 0;
-      });
-      if (lines.length === 0) return;
+      const content = ev.target.result.replace(/^\uFEFF/, '');
+      const separator = (content.split('\n')[0] || "").includes(";") ? ";" : ",";
 
-      // Detecta o separador (vírgula ou ponto-e-vírgula)
-      const firstLine = lines[0];
-      const separator = firstLine.includes(";") ? ";" : ",";
-
-      // Função auxiliar para processar uma linha de CSV respeitando aspas
-      const parseCSVLine = (line) => {
+      const lines = content.split(/\r?\n/);
+      const parsedRows = lines.map(line => {
         const result = [];
         let current = "";
         let inQuotes = false;
         for (let i = 0; i < line.length; i++) {
           const char = line[i];
+          const nextChar = line[i+1];
           if (char === '"') {
-            inQuotes = !inQuotes;
+            if (inQuotes && nextChar === '"') {
+              current += '"';
+              i++;
+            } else {
+              inQuotes = !inQuotes;
+            }
           } else if (char === separator && !inQuotes) {
             result.push(current.trim().replace(/^"|"$/g, ""));
             current = "";
@@ -469,9 +411,11 @@ export function useExpenses() {
         }
         result.push(current.trim().replace(/^"|"$/g, ""));
         return result;
-      };
+      }).filter(row => row.some(cell => cell.replace(/[,;]/g, "").trim().length > 0));
 
-      const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase());
+      if (parsedRows.length === 0) return;
+      
+      const headers = parsedRows[0].map(h => h.toLowerCase());
       
       let targetProjeto = projetoAtivo;
       
@@ -499,8 +443,8 @@ export function useExpenses() {
       const newCtasCreated = new Set();
 
       let count = 0;
-      for(let i = 1; i < lines.length; i++){
-        const vals = parseCSVLine(lines[i]);
+      for(let i = 1; i < parsedRows.length; i++){
+        const vals = parsedRows[i];
         const payload = {};
         let hasData = false;
         
@@ -513,10 +457,13 @@ export function useExpenses() {
             );
             
             const indexToUse = csvIndex !== -1 ? csvIndex : j;
-            const val = vals[indexToUse] || "";
+            let val = vals[indexToUse] || "";
+            if (col.name === 'valor' || col.name === 'unitario') {
+              val = parseVal(val);
+            }
             payload[col.name] = val;
             
-            if (val.trim().length > 0) {
+            if (String(val).trim().length > 0) {
               hasData = true;
 
               // Auto-criar categorias novas encontradas no CSV
@@ -619,7 +566,6 @@ export function useExpenses() {
     saveForm,
     startEdit,
     exportCSV,
-    scanReceipt,
     importCSV
   };
 }

@@ -90,24 +90,13 @@ export default function App() {
       <div className="app-content">
         {/* Barra de Ações (Oculta para Prestadores) */}
         {(!expenses.user?.role || expenses.user?.role !== "prestador" || expenses.user?.is_admin) && (
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            background: "#fff",
-            padding: "12px 16px",
-            borderRadius: 10,
-            boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-            marginBottom: 20,
-            flexWrap: "wrap"
-          }}>
+          <div className="action-bar">
             <button onClick={() => { expenses.setShowForm(true); expenses.setEditId(null); expenses.setForm({}); expenses.setTab("lancamentos"); }} style={{ ...btnStyle("#2563eb"), display: "flex", alignItems: "center", gap: 6 }}>
               <Plus size={18} /> Novo Lançamento
             </button>
             <button onClick={expenses.exportCSV} style={{ ...btnStyle("#16a34a"), display: "flex", alignItems: "center", gap: 6 }}>
               <FileDown size={18} /> Exportar CSV
             </button>
-            <input ref={expenses.receiptRef} type="file" accept="image/*,application/pdf" onChange={expenses.scanReceipt} style={{ display: "none" }} capture="environment" />
             <button onClick={() => expenses.fileRef.current.click()} style={{ ...btnStyle("#7c3aed"), display: "flex", alignItems: "center", gap: 6 }}>
               <FileUp size={18} /> Importar CSV
             </button>

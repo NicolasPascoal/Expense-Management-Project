@@ -1,5 +1,6 @@
 import psycopg2
 from psycopg2.extras import DictCursor
+from psycopg2 import pool
 from dotenv import load_dotenv
 import os
 
@@ -145,8 +146,9 @@ class PostgreSQLConnectionWrapper:
     Wrapper para a conexão do psycopg2 para emular comportamentos específicos do sqlite3,
     como o método .execute() diretamente na conexão.
     """
-    def __init__(self, conn):
+    def __init__(self, conn, db_pool=None):
         self._conn = conn
+        self._pool = db_pool
 
     def cursor(self, *args, **kwargs):
         # Retorna o nosso CursorWrapper em vez do cursor cru do psycopg2
@@ -159,25 +161,34 @@ class PostgreSQLConnectionWrapper:
         self._conn.rollback()
 
     def close(self):
-        self._conn.close()
+        if self._pool:
+            self._pool.putconn(self._conn)
+        else:
+            self._conn.close()
 
     def execute(self, sql, params=None):
         cur = self.cursor()
         cur.execute(sql, params)
         return cur
 
+_db_pool = None
+
 def get_db_connection():
     """
-    Estabelece uma conexão com o banco de dados PostgreSQL e retorna o wrapper compatível.
+    Estabelece uma conexão com o banco de dados PostgreSQL usando um pool e retorna o wrapper.
     """
-    conn = psycopg2.connect(
-        user=PG_USER,
-        password=PG_PASSWORD,
-        host=PG_HOST,
-        port=PG_PORT,
-        database=PG_DATABASE
-    )
-    return PostgreSQLConnectionWrapper(conn)
+    global _db_pool
+    if _db_pool is None:
+        _db_pool = psycopg2.pool.SimpleConnectionPool(
+            1, 20,
+            user=PG_USER,
+            password=PG_PASSWORD,
+            host=PG_HOST,
+            port=PG_PORT,
+            database=PG_DATABASE
+        )
+    conn = _db_pool.getconn()
+    return PostgreSQLConnectionWrapper(conn, _db_pool)
 
 from app.database.modelProjetos import create_projetos_tables
 from app.database.modelCategoria import create_categorias_tables
