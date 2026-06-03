@@ -4,7 +4,7 @@ import { FORMAS } from "../data/constants";
 export function FormModal({
   form,
   editId,
-  scanning,
+
   projetoAtivo,
   categoriasDb,
   contasDb,
@@ -25,12 +25,7 @@ export function FormModal({
   return (
     <div className="modal-overlay">
       <div className="modal-box">
-        {scanning && (
-          <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, padding: "12px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10, color: "#1e40af", fontSize: 14 }}>
-            <span style={{ fontSize: 20 }}>🔍</span>
-            <span>Lendo o recibo com IA... aguarde um instante.</span>
-          </div>
-        )}
+
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <b style={{ fontSize: 16 }}>{editId ? "✏️ Editar Lançamento" : "➕ Novo Lançamento"}</b>
           <button onClick={() => { setShowForm(false); setEditId(null); }} style={{ border: "none", background: "none", fontSize: 20, cursor: "pointer", color: "#64748b" }}>✕</button>
