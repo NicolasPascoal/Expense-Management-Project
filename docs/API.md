@@ -110,7 +110,8 @@ Legenda de proteção:
 
 ### `POST /api/usuarios`
 - **Proteção**: `admin_required`.
-- **Body**: `{ "username", "password", "is_admin"?: bool, "role"?: string }` — se `role` não for enviado, é derivado de `is_admin` (`'admin'` ou `'prestador'`).
+- **Body**: `{ "username", "password", "is_admin"?: bool, "role"?: string }` — se `role` não for enviado, é derivado de `is_admin` (`'admin'` ou `'prestador'`). `is_admin` gravado é sempre derivado do papel (`role == 'admin'`).
+- **Validação** (desde 2026-10-07): `username` ≥ 3 caracteres, senha ≥ 6, `role` em `admin`/`gestor_obra`/`financeiro`/`prestador` — senão `400`.
 - **Sucesso (201)**: `{ "id", "username", "is_admin": bool, "role", "empresa_id" }` — `empresa_id` gravado é o da empresa do admin autenticado (`g.user['empresa_id']`), não vem do body (Tarefa 1.1, roadmap SaaS).
 - **Erros**: `400` se `username`/`password` ausentes, ou se `username` já existir (violação de `UNIQUE` — ainda global, não composto por empresa; capturada como exceção genérica).
 
@@ -120,10 +121,28 @@ Legenda de proteção:
 - **Sucesso (200)**: `{ "id", "projeto_ids": [...] }`.
 - **Erros**: `400` se `projeto_ids` não for lista de inteiros, se alguma obra não for da empresa (nada é alterado), ou se o alvo for admin; `404` se o usuário não for da empresa.
 
+### `PUT /api/usuarios/:id`
+- **Proteção**: `admin_required`. **Body**: `{ "role" }`. Muda o papel (e `is_admin` junto). Vale na próxima requisição da pessoa.
+- **Erros**: `400` papel inválido, tirar o próprio admin, ou rebaixar o último admin ativo da empresa; `404` usuário de outra empresa.
+
+### `PUT /api/usuarios/:id/senha`
+- **Proteção**: `admin_required`. **Body**: `{ "nova_senha" }` (≥ 6). Redefine a senha e encerra as sessões abertas da pessoa. `404` se de outra empresa.
+
 ### `DELETE /api/usuarios/:id`
 - **Proteção**: `admin_required`.
-- **Regra**: bloqueia exclusão se `id == 1` (retorna `400`), independentemente de quem está fazendo a chamada.
-- **Efeito colateral em cascata**: por `ON DELETE CASCADE`, remove também `tarefas` (onde era `prestador_id`) e `requisicoes_materiais` (onde era `usuario_id`) desse usuário — ou seja, excluir um usuário apaga o histórico de tarefas e requisições dele, sem soft-delete.
+- **Desde 2026-10-07 desativa em vez de apagar** (`usuarios.ativo = FALSE`): a pessoa perde o acesso na hora e não consegue logar, mas tarefas e requisições dela ficam (antes eram apagadas em cascata). Rota mantida por compatibilidade.
+- **Erros**: `400` desativar a si mesmo ou o último admin ativo da empresa (substitui a antiga regra fixa `id == 1`); `404` usuário de outra empresa.
+
+### `POST /api/usuarios/:id/reativar`
+- **Proteção**: `admin_required`. Reativa um usuário desativado. `404` se de outra empresa.
+
+### `PUT /api/me/senha`
+- **Proteção**: `token_required`; rate limit 10/hora. **Body**: `{ "senha_atual", "nova_senha" }`.
+- **Sucesso (200)**: mesmo formato do `POST /login` (`{ token, user }`) — a troca invalida o token anterior, então o novo substitui a sessão.
+- **Erros**: `400` senha atual incorreta ou nova senha < 6 caracteres.
+
+### `GET /api/config`
+- **Público**. `{ "cadastro_publico": bool }` — a tela de login só mostra "Criar conta" quando `true` (variável `SIGNUP_ENABLED`, padrão desligado). Com o cadastro desligado, `POST /api/signup` responde `404`.
 
 ---
 

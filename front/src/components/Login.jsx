@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../services/api";
 import { btnStyle } from "../utils/styles";
 import { Construction } from "lucide-react";
@@ -8,6 +8,14 @@ export function Login({ onLogin, onShowSignup }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // "Criar conta" só aparece quando o cadastro público está ligado (SIGNUP_ENABLED)
+  const [cadastroPublico, setCadastroPublico] = useState(false);
+
+  useEffect(() => {
+    api.getConfig()
+      .then(config => setCadastroPublico(!!config.cadastro_publico))
+      .catch(() => setCadastroPublico(false));
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -119,6 +127,7 @@ export function Login({ onLogin, onShowSignup }) {
           </button>
         </form>
         
+        {cadastroPublico && (
         <p style={{ marginTop: 24, fontSize: 13, color: "#64748b" }}>
           Ainda não tem conta?{" "}
           <button
@@ -129,6 +138,7 @@ export function Login({ onLogin, onShowSignup }) {
             Criar conta
           </button>
         </p>
+        )}
       </div>
     </div>
   );

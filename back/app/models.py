@@ -61,6 +61,10 @@ class Usuario(db.Model):
     is_admin = db.Column(db.Integer, default=0)
     role = db.Column(db.String(50), default="prestador")
     empresa_id = db.Column(db.Integer, db.ForeignKey("empresas.id"), nullable=False)
+    # Pacote "usuários e acesso": desativar em vez de apagar; tokens emitidos
+    # antes de senha_alterada_em deixam de valer.
+    ativo = db.Column(db.Boolean, nullable=False, server_default=db.true())
+    senha_alterada_em = db.Column(db.TIMESTAMP, nullable=True)
 
     empresa = db.relationship("Empresa", back_populates="usuarios")
     tarefas = db.relationship("Tarefa", back_populates="prestador")

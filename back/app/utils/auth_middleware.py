@@ -1,8 +1,10 @@
+import datetime
 import jwt
 import os
 from functools import wraps
 from flask import request, jsonify, g
 
+from app.database.db import get_db_connection
 from app.utils.permissions import tem_permissao
 
 SECRET_KEY = os.getenv("JWT_SECRET_KEY")
@@ -28,13 +30,53 @@ def _autenticar():
         # Remove o prefixo 'Bearer ' se existir
         if token.startswith('Bearer '):
             token = token.split(" ", 1)[1]
-        g.user = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
     except jwt.ExpiredSignatureError:
         return jsonify({'erro': 'Token expirado!'}), 401
     except jwt.InvalidTokenError:
         return jsonify({'erro': 'Token inválido!'}), 401
 
+    # Revogação imediata (pacote "usuários e acesso"): o token sozinho não
+    # basta — usuário apagado ou desativado perde o acesso na hora, e papel/
+    # admin/empresa vêm do banco, então uma mudança de papel vale já na
+    # próxima requisição (antes valia o que estava no token por até 24h).
+    usuario = _usuario_do_banco(payload.get('id'))
+    if usuario is None or not usuario['ativo']:
+        return jsonify({'erro': 'Sessão inválida. Faça login novamente.'}), 401
+    if _emitido_antes_da_troca_de_senha(payload, usuario['senha_alterada_em']):
+        return jsonify({'erro': 'Sua senha foi alterada. Faça login novamente.'}), 401
+
+    g.user = {
+        **payload,
+        'username': usuario['username'],
+        'is_admin': bool(usuario['is_admin']),
+        'role': usuario['role'],
+        'empresa_id': usuario['empresa_id'],
+    }
     return None
+
+
+def _usuario_do_banco(usuario_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT username, is_admin, role, empresa_id, ativo, senha_alterada_em FROM usuarios WHERE id = ?",
+        (usuario_id,)
+    )
+    usuario = cursor.fetchone()
+    conn.close()
+    return usuario
+
+
+def _emitido_antes_da_troca_de_senha(payload, senha_alterada_em):
+    """senha_alterada_em é gravado em UTC, truncado no segundo (mesma
+    resolução do `iat` do JWT). Token sem `iat` (emitido antes desta
+    mudança) conta como anterior a qualquer troca de senha."""
+    if senha_alterada_em is None:
+        return False
+    alterada = senha_alterada_em.replace(tzinfo=datetime.timezone.utc).timestamp()
+    iat = payload.get('iat')
+    return iat is None or iat < alterada
 
 def token_required(f):
     """Exige usuário autenticado; popula g.user com o payload completo do token."""

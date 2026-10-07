@@ -101,7 +101,8 @@ Todas as rotas autenticadas também aplicam **isolamento por tenant** (Tarefa 1.
 | `GET /auditoria` | `admin_required` (Tarefa 6.2) | Filtra por `empresa_id` (últimos 100) |
 | `GET /projetos` | `token_required` | Filtra por `empresa_id`; não-admin: só obras vinculadas |
 | `POST/PUT/DELETE /projetos*` | `admin_required` | Posse do projeto em PUT/DELETE |
-| `GET/POST/DELETE /usuarios*` | `admin_required` | Alvo da exclusão pertence à empresa; proteção do `id=1` |
+| `GET/POST/PUT/DELETE /usuarios*`, `POST /usuarios/:id/reativar` | `admin_required` | Alvo pertence à empresa; DELETE desativa; ninguém desativa/rebaixa a si mesmo nem o último admin ativo (substitui o antigo `id == 1`) |
+| `PUT /me/senha` | `token_required` | Confere a senha atual |
 | `PUT /usuarios/:id/projetos` | `admin_required` | Usuário e obras pertencem à empresa; alvo não pode ser admin |
 | `GET /requisicoes` | `token_required` | Admin: filtra por empresa; não-admin: filtra por dono |
 | `POST /requisicoes` | `token_required` | Usuário só cria para si mesmo, por design |

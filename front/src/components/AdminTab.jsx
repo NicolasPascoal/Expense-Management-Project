@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { api } from "../services/api";
 import { btnStyle, inputStyle } from "../utils/styles";
+import { SenhaModal } from "./SenhaModal";
+
+const ACOES_LINK = { border: "none", background: "none", cursor: "pointer", fontSize: 12, padding: 0 };
 
 const PAPEIS = [
   { valor: "admin", label: "Admin" },
@@ -9,12 +12,13 @@ const PAPEIS = [
   { valor: "prestador", label: "Prestador" },
 ];
 
-export function AdminTab({ askConfirm, usuarios, fetchUsuarios, projetos }) {
+export function AdminTab({ askConfirm, usuarios, fetchUsuarios, projetos, user }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("prestador");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [redefinindoSenhaDe, setRedefinindoSenhaDe] = useState(null);
 
   useEffect(() => {
     // Sincroniza usuários ao abrir a aba
@@ -54,17 +58,26 @@ export function AdminTab({ askConfirm, usuarios, fetchUsuarios, projetos }) {
     }
   };
 
-  const handleDeleteUser = (id, name) => {
-    if (id === 1) return alert("Não é possível remover o administrador principal.");
+  // As regras (não desativar/rebaixar a si mesmo nem o último admin) ficam no
+  // backend; aqui só se esconde o que nunca faria sentido para si mesmo.
+  const handleAlterarPapel = async (usuario, novoPapel) => {
+    try {
+      await api.updateUsuarioRole(usuario.id, novoPapel);
+    } catch (err) {
+      alert(err.message);
+    }
+    fetchUsuarios();
+  };
 
+  const handleDesativar = (usuario) => {
     askConfirm({
-      title: `Remover acesso de "${name}"?`,
-      message: "Este usuário não poderá mais acessar o sistema.",
+      title: `Desativar o acesso de "${usuario.username}"?`,
+      message: "A pessoa sai do sistema na hora. O histórico dela (tarefas, requisições) é mantido e você pode reativar depois.",
       icon: "👤",
-      confirmText: "Remover",
+      confirmText: "Desativar",
       onConfirm: async () => {
         try {
-          await api.deleteUsuario(id);
+          await api.deleteUsuario(usuario.id);
           fetchUsuarios();
         } catch (err) {
           alert(err.message);
@@ -73,8 +86,28 @@ export function AdminTab({ askConfirm, usuarios, fetchUsuarios, projetos }) {
     });
   };
 
+  const handleReativar = async (usuario) => {
+    try {
+      await api.reativarUsuario(usuario.id);
+      fetchUsuarios();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   return (
-    <div style={{ maxWidth: 800, margin: "0 auto" }}>
+    <div style={{ maxWidth: 900, margin: "0 auto" }}>
+      {redefinindoSenhaDe && (
+        <SenhaModal
+          titulo={`Redefinir senha de "${redefinindoSenhaDe.username}"`}
+          onClose={() => setRedefinindoSenhaDe(null)}
+          onSalvar={async (_, novaSenha) => {
+            await api.redefinirSenhaUsuario(redefinindoSenhaDe.id, novaSenha);
+            setRedefinindoSenhaDe(null);
+            alert("Senha redefinida. As sessões abertas dessa pessoa foram encerradas.");
+          }}
+        />
+      )}
       <div style={{ background: "#fff", padding: 24, borderRadius: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.1)", marginBottom: 24 }}>
         <h2 style={{ margin: "0 0 16px 0", fontSize: 18 }}>Gestão de Acessos</h2>
 
@@ -128,33 +161,27 @@ export function AdminTab({ askConfirm, usuarios, fetchUsuarios, projetos }) {
             </tr>
           </thead>
           <tbody>
-            {usuarios.map(u => (
-              <tr key={u.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                <td style={{ padding: "12px 16px", fontWeight: 500 }}>{u.username}</td>
-                <td style={{ padding: "12px 16px", display: "flex", gap: 8 }}>
-                  {u.is_admin ? (
-                    <span style={{
-                      background: "#dcfce7",
-                      color: "#166534",
-                      padding: "2px 8px",
-                      borderRadius: 4,
-                      fontSize: 11,
-                      fontWeight: 600
-                    }}>
-                      ADMINISTRADOR
-                    </span>
-                  ) : null}
-                  <span style={{
-                    background: u.role === "prestador" ? "#dbeafe" : "#f1f5f9",
-                    color: u.role === "prestador" ? "#1e40af" : "#475569",
-                    padding: "2px 8px",
-                    borderRadius: 4,
-                    fontSize: 11,
-                    fontWeight: 600,
-                    textTransform: "uppercase"
-                  }}>
-                    {PAPEIS.find(p => p.valor === u.role)?.label || u.role || "USUÁRIO"}
-                  </span>
+            {usuarios.map(u => {
+              const ehVoce = u.id === user?.id;
+              return (
+              <tr key={u.id} style={{ borderBottom: "1px solid #f1f5f9", opacity: u.ativo === false ? 0.55 : 1 }}>
+                <td style={{ padding: "12px 16px", fontWeight: 500 }}>
+                  {u.username}
+                  {ehVoce && <span style={{ color: "#64748b", fontWeight: 400, fontSize: 12 }}> (você)</span>}
+                  {u.ativo === false && (
+                    <span style={{ display: "block", color: "#991b1b", fontSize: 11, fontWeight: 600 }}>INATIVO</span>
+                  )}
+                </td>
+                <td style={{ padding: "12px 16px" }}>
+                  <select
+                    value={u.role}
+                    disabled={ehVoce}
+                    title={ehVoce ? "Você não pode alterar o seu próprio papel" : undefined}
+                    onChange={e => handleAlterarPapel(u, e.target.value)}
+                    style={{ ...inputStyle, margin: 0, fontSize: 12, padding: "4px 8px", width: "auto", minWidth: 140 }}
+                  >
+                    {PAPEIS.map(p => <option key={p.valor} value={p.valor}>{p.label}</option>)}
+                  </select>
                 </td>
                 <td style={{ padding: "12px 16px", fontSize: 13 }}>
                   {u.is_admin ? (
@@ -182,18 +209,27 @@ export function AdminTab({ askConfirm, usuarios, fetchUsuarios, projetos }) {
                     </div>
                   )}
                 </td>
-                <td style={{ padding: "12px 16px", textAlign: "right" }}>
-                  {u.id !== 1 && (
-                    <button
-                      onClick={() => handleDeleteUser(u.id, u.username)}
-                      style={{ border: "none", background: "none", color: "#ef4444", cursor: "pointer", fontSize: 12 }}
-                    >
-                      Remover Acesso
-                    </button>
-                  )}
+                <td style={{ padding: "12px 16px", textAlign: "right", whiteSpace: "nowrap" }}>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                    {!ehVoce && (
+                      <button onClick={() => setRedefinindoSenhaDe(u)} style={{ ...ACOES_LINK, color: "#2563eb" }}>
+                        Redefinir senha
+                      </button>
+                    )}
+                    {!ehVoce && (u.ativo === false ? (
+                      <button onClick={() => handleReativar(u)} style={{ ...ACOES_LINK, color: "#16a34a" }}>
+                        Reativar
+                      </button>
+                    ) : (
+                      <button onClick={() => handleDesativar(u)} style={{ ...ACOES_LINK, color: "#ef4444" }}>
+                        Desativar
+                      </button>
+                    ))}
+                  </div>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

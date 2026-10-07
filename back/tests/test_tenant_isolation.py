@@ -10,7 +10,7 @@ import pytest
 from flask import Flask
 
 from app.controller.auth_controller import SECRET_KEY
-from app.controller.usuarios_controller import criar_usuario, get_todos_usuarios, deletar_usuario
+from app.controller.usuarios_controller import criar_usuario, get_todos_usuarios, desativar_usuario
 from app.controller import lancamentos_controller, servicos_controller, tarefas_controller
 from app.routes import projeto_routes, requisicao_routes
 
@@ -146,10 +146,13 @@ def test_listar_usuarios_filtra_por_empresa(duas_empresas):
     assert any(u["username"] == "user_a" for u in usuarios_a)
 
 
-def test_deletar_usuario_de_outra_empresa_falha(duas_empresas):
+def test_desativar_usuario_de_outra_empresa_falha(duas_empresas):
+    # Exclusão virou desativação (pacote "usuários e acesso"); o isolamento continua
     user_b = criar_usuario("user_b2", "senha123", duas_empresas["empresa_b"], is_admin=0, role="prestador")
-    assert deletar_usuario(user_b["id"], duas_empresas["empresa_a"]) is False
-    assert deletar_usuario(user_b["id"], duas_empresas["empresa_b"]) is True
+    _, status = desativar_usuario(user_b["id"], duas_empresas["empresa_a"], solicitante_id=-1)
+    assert status == 404
+    _, status = desativar_usuario(user_b["id"], duas_empresas["empresa_b"], solicitante_id=-1)
+    assert status == 200
 
 
 # ---------- projetos (rota, sem controller dedicado) ----------

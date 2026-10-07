@@ -16,6 +16,8 @@ import { TarefasTab } from "./components/TarefasTab";
 import { OrcamentoTab } from "./components/OrcamentoTab";
 import { FluxoCaixaTab } from "./components/FluxoCaixaTab";
 import { TimelineTab } from "./components/TimelineTab";
+import { SenhaModal } from "./components/SenhaModal";
+import { api } from "./services/api";
 import { can } from "./utils/permissions";
 import {
   LayoutDashboard,
@@ -29,12 +31,14 @@ import {
   ListTodo,
   Target,
   Banknote,
-  History
+  History,
+  KeyRound
 } from "lucide-react";
 
 export default function App() {
   const expenses = useExpenses();
   const [authView, setAuthView] = useState("login");
+  const [trocandoSenha, setTrocandoSenha] = useState(false);
 
   // Garantir que quem não tem acesso financeiro caia na aba correta se estiver em uma aba proibida
   useEffect(() => {
@@ -114,6 +118,9 @@ export default function App() {
             <span className="sidebar-username">{expenses.user?.username}</span>
             <span className="sidebar-role">{expenses.user?.role || "colaborador"}</span>
           </div>
+          <button onClick={() => setTrocandoSenha(true)} className="btn-logout-sidebar" style={{ marginBottom: 8 }}>
+            <KeyRound size={13} /> Alterar senha
+          </button>
           <button onClick={expenses.logout} className="btn-logout-sidebar">
             <LogOut size={13} /> Sair do sistema
           </button>
@@ -160,6 +167,20 @@ export default function App() {
         </header>
 
         <div className="app-content">
+          {trocandoSenha && (
+            <SenhaModal
+              titulo="Alterar minha senha"
+              pedirSenhaAtual
+              onClose={() => setTrocandoSenha(false)}
+              onSalvar={async (senhaAtual, novaSenha) => {
+                const data = await api.trocarMinhaSenha(senhaAtual, novaSenha);
+                expenses.setToken(data.token);
+                expenses.setUser(data.user);
+                setTrocandoSenha(false);
+                alert("Senha alterada. Outras sessões abertas foram encerradas.");
+              }}
+            />
+          )}
           {expenses.showForm && <FormModal {...expenses} />}
           {expenses.showProjectModal && <ProjectModal {...expenses} />}
           {expenses.confirmConfig && (
