@@ -76,7 +76,9 @@ def init_db():
 
 Chamada **toda vez que a aplicação sobe** (dentro de `create_app()`), usando `CREATE TABLE IF NOT EXISTS` para ser idempotente — ou seja, não há uma etapa separada de "provisionamento" do banco: o próprio processo da API garante que as tabelas existem antes de aceitar requisições.
 
-**Motivo**: simplicidade operacional — não é preciso rodar um comando de migração manualmente antes do primeiro deploy; a aplicação se "auto-provisiona". O custo é a ausência total de controle de versão de schema: não há histórico de "quais alterações de schema já foram aplicadas em qual ambiente", e qualquer alteração de coluna existente (não apenas criação de tabela nova) exigiria um script de migração manual à parte (como de fato acontece com `migrate_to_v2.py`), sem qualquer registro formal de que a migração já foi ou não executada em um ambiente específico além de checagens ad-hoc (`SELECT COUNT(*) ... IF 0`).
+**Desde 2026-10-07**, o deploy roda `back/migrar_banco.py` antes do servidor subir: `init_db()` + `stamp` da baseline Alembic em banco sem `alembic_version` + `alembic upgrade head` (ver `docs/DevelopmentFlow.md` §6.1). O `init_db()` continua sendo quem cria o schema do zero — a baseline não tem os server defaults do SQL dele — e o Alembic versiona as mudanças posteriores.
+
+**Motivo** (do `init_db()` no boot): simplicidade operacional — não é preciso rodar um comando de migração manualmente antes do primeiro deploy; a aplicação se "auto-provisiona". O custo é a ausência total de controle de versão de schema: não há histórico de "quais alterações de schema já foram aplicadas em qual ambiente", e qualquer alteração de coluna existente (não apenas criação de tabela nova) exigiria um script de migração manual à parte (como de fato acontece com `migrate_to_v2.py`), sem qualquer registro formal de que a migração já foi ou não executada em um ambiente específico além de checagens ad-hoc (`SELECT COUNT(*) ... IF 0`).
 
 ### 5.1 Ordem de criação e por que ela importa
 
@@ -112,7 +114,7 @@ Tabela `usuario_projetos` (`id SERIAL`, `usuario_id` → `usuarios` ON DELETE CA
 
 - `id SERIAL` existe só por causa do wrapper de cursor (§4): ele roda `SELECT lastval()` após todo `INSERT`, o que abortaria a transação numa tabela sem sequência.
 - **Backfill único**: quando a tabela é criada pela primeira vez, todo não-admin é vinculado a todas as obras da própria empresa (preserva o acesso anterior). Só roda na criação — vínculo removido pelo admin não volta no próximo boot. Escrito como CTE (`WITH ... INSERT`) para não disparar o `lastval()` do wrapper quando não há linhas a inserir.
-- Fica no `init_db()` (e não só na migration) porque o deploy não roda `alembic upgrade`.
+- Fica no `init_db()` (e não só na migration) porque o `init_db()` roda antes do Alembic no deploy e é quem cria bancos novos.
 
 ## 7. Scripts de manutenção e migração (fora do runtime da API)
 
