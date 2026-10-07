@@ -14,8 +14,9 @@ def test_seed_empresa_existe(db_session):
     cursor = db_session.cursor()
     cursor.execute("SELECT nome FROM empresas WHERE id = 1")
     empresa = cursor.fetchone()
+    # O nome não é conferido: o seed só nomeia a empresa numa instalação nova
+    # ("Minha Construtora"); bancos antigos mantêm o nome que já tinham.
     assert empresa is not None
-    assert empresa["nome"] == "Obra Itanhaém"
 
 
 def test_criar_usuario_grava_empresa_id(db_session):

@@ -20,7 +20,8 @@ Este documento consolida as regras de negócio identificadas no código (backend
 
 - Todo lançamento pertence a exatamly um projeto (`projeto_id` obrigatório).
 - Cada projeto define seu próprio schema de campos (`colunas`) — um array de definições `{name, label, type, options?}` usado para renderizar dinamicamente o formulário de lançamento e para orientar a exportação/importação de CSV.
-- Existe sempre um projeto seed padrão (`Obra Itanhaém`, id fixo 1) criado automaticamente na primeira inicialização do banco.
+- Existe sempre um projeto seed padrão (`Obra 1`, id fixo 1) criado automaticamente na primeira inicialização de um banco novo (bancos antigos mantêm o nome que já tinham — a empresa 1 original se chama `Obra Itanhaém`). O cadastro público (`POST /signup`) também cria a primeira obra como `Obra 1`.
+- Contas não vêm pré-cadastradas: o formulário de lançamento só oferece as contas que a empresa cadastrou na aba Serviços (desde 2026-10-07).
 - Apenas administradores podem criar, editar ou excluir projetos.
 - **Excluir um projeto exclui em cascata** todos os seus lançamentos, categorias e contas (não há confirmação adicional ou soft-delete no backend — a confirmação existe apenas como modal no frontend, `ConfirmModal`/`DeleteModal`).
 

@@ -22,7 +22,7 @@ export function ProjectModal({ setShowProjectModal, createProject }) {
             <input 
               value={nome} 
               onChange={e => setNome(e.target.value)} 
-              placeholder="Ex: Obra Itanhaém" 
+              placeholder="Ex: Obra 2" 
               style={inputStyle}
               autoFocus
             />

@@ -18,7 +18,7 @@ def create_projetos_tables(cursor):
     cursor.execute("SELECT COUNT(*) FROM projetos")
     default_cols = '[{"name":"data","label":"Data","type":"text"},{"name":"categoria","label":"Categoria","type":"select"},{"name":"item","label":"Item / Descrição","type":"text"},{"name":"fornecedor","label":"Fornecedor","type":"text"},{"name":"quantidade","label":"Qtd","type":"number"},{"name":"unitario","label":"Unitário (R$)","type":"text"},{"name":"valor","label":"Valor Pago (R$)","type":"text"},{"name":"forma","label":"Forma","type":"select"},{"name":"conta","label":"Conta","type":"select"},{"name":"obs","label":"Observações","type":"textarea"}]'
     if cursor.fetchone()[0] == 0:
-        cursor.execute("INSERT INTO projetos (id, nome, colunas, empresa_id) VALUES (1, 'Obra Itanhaém', ?, 1)", (default_cols,))
+        cursor.execute("INSERT INTO projetos (id, nome, colunas, empresa_id) VALUES (1, 'Obra 1', ?, 1)", (default_cols,))
         # Sincroniza a sequência
         cursor.execute("SELECT setval(pg_get_serial_sequence('projetos', 'id'), COALESCE((SELECT MAX(id) FROM projetos), 1))")
 

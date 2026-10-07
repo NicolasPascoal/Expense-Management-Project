@@ -24,7 +24,7 @@ def test_signup_cria_empresa_usuario_admin_e_projeto_inicial(orm_session):
     assert usuario.empresa_id == empresa_id
 
     projeto = orm_session.query(Projeto).filter_by(empresa_id=empresa_id).first()
-    assert projeto.nome == "Minha Primeira Obra"
+    assert projeto.nome == "Obra 1"
 
 
 def test_signup_username_duplicado_nao_deixa_empresa_orfa(orm_session):

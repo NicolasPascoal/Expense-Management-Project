@@ -9,7 +9,7 @@ from app.models import Empresa, Projeto, Usuario
 
 USERNAME_MIN = 3
 PASSWORD_MIN = 6
-NOME_PROJETO_INICIAL = "Minha Primeira Obra"
+NOME_PROJETO_INICIAL = "Obra 1"
 
 
 def cadastrar_construtora(nome_empresa, username, password, colunas=None):

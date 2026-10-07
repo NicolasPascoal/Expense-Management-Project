@@ -90,11 +90,11 @@ Cada `create_*_tables()` também insere dados padrão **se a tabela estiver vazi
 
 | Tabela | Seed | Observação |
 |---|---|---|
-| `empresas` | 1 empresa: `Obra Itanhaém` (id fixo 1) | Tenant seed que herda todo o histórico legado de instância única (Tarefa 1.1 do roadmap SaaS) |
-| `projetos` | 1 projeto: `Obra Itanhaém` (id fixo 1), com um conjunto padrão de 10 colunas dinâmicas, vinculado a `empresa_id=1` | Também sincroniza a sequência (`setval`) para o próximo `id` gerado não colidir com o id fixo 1 |
+| `empresas` | 1 empresa: `Minha Construtora` (id fixo 1) — bancos antigos mantêm `Obra Itanhaém` | Tenant seed que herda todo o histórico legado de instância única (Tarefa 1.1 do roadmap SaaS) |
+| `projetos` | 1 projeto: `Obra 1` (id fixo 1; bancos antigos mantêm `Obra Itanhaém`), com um conjunto padrão de 10 colunas dinâmicas, vinculado a `empresa_id=1` | Também sincroniza a sequência (`setval`) para o próximo `id` gerado não colidir com o id fixo 1 |
 | `usuarios` | 1 admin: `admin`/`admin` (senha com hash), vinculado a `empresa_id=1` | Ver `Security.md` — credencial previsível |
 | `categorias` | 9 categorias fixas (`Documentação`, `Terraplanagem`, etc.), associadas ao primeiro projeto encontrado | |
-| `contas` | 4 contas fixas (nomes reais de pessoas/empresas — ver `Entities.md`) | |
+| `contas` | Nenhum seed (desde 2026-10-07) | Antes eram 4 contas com nomes reais da obra original. Bancos antigos mantêm as que já tinham; o frontend também deixou de ter essa lista fixa (`constants.js`) |
 | `requisicoes_materiais` | Nenhum seed | Tabela criada vazia. Coluna `lancamento_id` (Tarefa 7.5, `REFERENCES lancamentos_v2 ON DELETE SET NULL`): lançamento gerado a partir da requisição — excluir o lançamento libera a requisição para gerar de novo. Adicionada também por `ALTER ... ADD COLUMN IF NOT EXISTS` no `init_db()` (bancos existentes e o banco de teste) e pela migration `d4b8e6f2a1c3` |
 | `tarefas` | Nenhum seed | Tabela criada vazia |
 
