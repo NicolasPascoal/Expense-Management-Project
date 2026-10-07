@@ -10,8 +10,8 @@
     },
     {
       "name": "back-dev",
-      "runtimeExecutable": "py",
-      "runtimeArgs": ["-3", "main.py"],
+      "runtimeExecutable": "venv\\Scripts\\python.exe",
+      "runtimeArgs": ["main.py"],
       "cwd": "back",
       "port": 5000
     }
