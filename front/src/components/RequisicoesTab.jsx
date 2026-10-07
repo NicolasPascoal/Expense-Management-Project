@@ -3,12 +3,19 @@ import { inputStyle, btnStyle, td } from "../utils/styles";
 import { ClipboardCheck, Package, Clock, Truck, CheckCircle, XCircle } from "lucide-react";
 import { can } from "../utils/permissions";
 
+// Tarefa 7.5: status em que a compra já foi feita — espelha
+// STATUS_QUE_GERAM_LANCAMENTO do backend (lancamentos_controller.py).
+const STATUS_QUE_GERAM_LANCAMENTO = ["A caminho", "Comprado"];
+
 export function RequisicoesTab({ 
   user, 
   requisicoes, 
   createRequisicao, 
-  updateRequisicaoStatus 
+  updateRequisicaoStatus,
+  gerarLancamentoDeRequisicao,
+  projetoAtivo
 }) {
+  const podeGerarLancamento = can(user, "aprovar_requisicoes") && can(user, "acesso_financeiro") && !!projetoAtivo;
   const [nome, setNome] = useState(user?.username || "");
   const [funcao, setFuncao] = useState("");
   const [funcaoOutra, setFuncaoOutra] = useState("");
@@ -118,7 +125,19 @@ export function RequisicoesTab({
                     </span>
                   </td>
                   {can(user, "aprovar_requisicoes") && (
-                    <td style={{ ...td, textAlign: "right" }}>
+                    <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
+                      {r.lancamento_id ? (
+                        <span style={{ fontSize: 11, fontWeight: 600, color: "#166534", marginRight: 8 }}>
+                          ✓ Lançado
+                        </span>
+                      ) : podeGerarLancamento && STATUS_QUE_GERAM_LANCAMENTO.includes(r.status) && (
+                        <button
+                          onClick={() => gerarLancamentoDeRequisicao(r)}
+                          style={{ ...btnStyle("#16a34a"), fontSize: 11, padding: "4px 8px", marginRight: 8 }}
+                        >
+                          Gerar lançamento
+                        </button>
+                      )}
                       <select 
                         value={r.status} 
                         onChange={(e) => updateRequisicaoStatus(r.id, e.target.value)}

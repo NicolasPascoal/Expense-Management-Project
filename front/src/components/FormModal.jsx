@@ -31,6 +31,12 @@ export function FormModal({
           <button onClick={() => { setShowForm(false); setEditId(null); }} style={{ border: "none", background: "none", fontSize: 20, cursor: "pointer", color: "#64748b" }}>✕</button>
         </div>
 
+        {form.requisicao_id && (
+          <div style={{ background: "#eff6ff", color: "#1e40af", padding: "8px 12px", borderRadius: 8, fontSize: 13, marginBottom: 12 }}>
+            Gerado a partir da requisição #{form.requisicao_id} — será lançado na obra <b>{projetoAtivo.nome}</b>.
+          </div>
+        )}
+
         <div className="modal-form-grid">
           {projetoAtivo.colunas.map(col => (
             <label

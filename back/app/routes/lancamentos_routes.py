@@ -1,11 +1,12 @@
 from flask import Blueprint, request, jsonify, g
 from app.controller.lancamentos_controller import (
     get_todos_lancamentos, get_lancamento_por_id, criar_lancamento,
-    atualizar_lancamento, deletar_lancamento
+    atualizar_lancamento, deletar_lancamento, criar_lancamento_de_requisicao
 )
 from app.utils.auth_middleware import token_required, non_prestador_required
 from app.utils.tenant import usuario_acessa_projeto, usuario_restrito
 from app.utils.auditoria import log_auditoria
+from app.utils.permissions import tem_permissao
 
 lancamentos_bp = Blueprint('lancamentos', __name__)
 
@@ -36,11 +37,25 @@ def novo_lancamento():
     if not usuario_acessa_projeto(g.user, projeto_id):
         return jsonify({'erro': 'projeto_id inválido'}), 400
 
-    # Removemos o projeto_id do corpo para salvar apenas os dados dinâmicos no JSON
-    payload = {k: v for k, v in dados.items() if k != 'projeto_id'}
+    # Removemos projeto_id/requisicao_id do corpo para salvar apenas os dados dinâmicos no JSON
+    payload = {k: v for k, v in dados.items() if k not in ['projeto_id', 'requisicao_id']}
+    detalhes = payload.get('item') or payload.get('categoria') or ''
 
-    novo = criar_lancamento(projeto_id, payload, g.user['empresa_id'])
-    log_auditoria(g.user['empresa_id'], g.user['id'], 'lancamento', novo['id'], 'criar', payload.get('item') or payload.get('categoria') or '')
+    # Tarefa 7.5: lançamento gerado a partir de uma requisição de material
+    requisicao_id = dados.get('requisicao_id')
+    if requisicao_id is not None:
+        if not tem_permissao(g.user, 'aprovar_requisicoes'):
+            return jsonify({'erro': 'Acesso negado para este papel de usuário.'}), 403
+        if not isinstance(requisicao_id, int) or isinstance(requisicao_id, bool):
+            return jsonify({'erro': 'requisicao_id inválido'}), 400
+        novo, status_code = criar_lancamento_de_requisicao(projeto_id, payload, g.user['empresa_id'], requisicao_id)
+        if status_code != 201:
+            return jsonify(novo), status_code
+        detalhes = f'{detalhes} (requisição #{requisicao_id})'
+    else:
+        novo = criar_lancamento(projeto_id, payload, g.user['empresa_id'])
+
+    log_auditoria(g.user['empresa_id'], g.user['id'], 'lancamento', novo['id'], 'criar', detalhes)
     return jsonify(novo), 201
 
 @lancamentos_bp.route('/lancamentos/<int:id>', methods=['PUT'])
@@ -49,7 +64,7 @@ def novo_lancamento():
 def editar_lancamento(id):
     dados = request.get_json()
     # No PUT, geralmente mantemos o projeto_id original, mas limpamos o payload
-    payload = {k: v for k, v in dados.items() if k not in ['id', 'projeto_id']}
+    payload = {k: v for k, v in dados.items() if k not in ['id', 'projeto_id', 'requisicao_id']}
     res = atualizar_lancamento(id, payload, g.user['empresa_id'], usuario_restrito(g.user))
     if not res:
         return jsonify({'erro': 'Não encontrado'}), 404

@@ -94,3 +94,46 @@ def deletar_lancamento(id, empresa_id, usuario_id=None):
     conn.commit()
     conn.close()
     return True
+
+# Tarefa 7.5: status em que a compra já foi feita — só nesses a requisição
+# pode virar lançamento (Pendente ainda não tem valor confirmado; Cancelado
+# não gera gasto).
+STATUS_QUE_GERAM_LANCAMENTO = ('A caminho', 'Comprado')
+
+def criar_lancamento_de_requisicao(projeto_id, dados, empresa_id, requisicao_id):
+    """Cria o lançamento e o vincula à requisição numa única transação.
+    A linha da requisição fica travada (FOR UPDATE) até o commit, então dois
+    cliques simultâneos não geram dois lançamentos. Retorna (resposta, status).
+    O chamador (rota) deve validar antes que o usuário acessa projeto_id."""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT r.status, r.lancamento_id FROM requisicoes_materiais r
+            JOIN usuarios u ON r.usuario_id = u.id
+            WHERE r.id = ? AND u.empresa_id = ?
+            FOR UPDATE OF r
+        ''', (requisicao_id, empresa_id))
+        requisicao = cursor.fetchone()
+        # Retornos antecipados: close() devolve a conexão ao pool, que faz
+        # rollback da transação aberta e libera a trava.
+        if requisicao is None:
+            return {'erro': 'Requisição não encontrada'}, 404
+        if requisicao['lancamento_id'] is not None:
+            return {'erro': 'Esta requisição já tem um lançamento vinculado'}, 409
+        if requisicao['status'] not in STATUS_QUE_GERAM_LANCAMENTO:
+            return {'erro': 'Só requisições "A caminho" ou "Comprado" podem gerar lançamento'}, 400
+
+        cursor.execute(
+            'INSERT INTO lancamentos_v2 (projeto_id, dados) VALUES (?, ?)',
+            (projeto_id, json.dumps(dados))
+        )
+        novo_id = cursor.lastrowid
+        cursor.execute(
+            'UPDATE requisicoes_materiais SET lancamento_id = ? WHERE id = ?',
+            (novo_id, requisicao_id)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return get_lancamento_por_id(novo_id, empresa_id), 201

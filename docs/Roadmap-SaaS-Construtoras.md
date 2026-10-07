@@ -367,7 +367,7 @@ Depois disso, o roadmap segue a lógica: **(1) conseguir cobrar** → **(2) ter 
 - **Estimativa:** 2-3 dias
 - **Riscos:** Baixo, mas requer decidir se a criação é automática ou uma sugestão que o gestor confirma (recomenda-se a segunda opção, para não gerar lançamentos com valores ainda não confirmados de compra).
 - **Critérios de aceite:**
-  - [ ] Ao aprovar uma requisição, o gestor tem a opção de gerar um lançamento já vinculado, sem redigitar as informações
+  - [x] Ao aprovar uma requisição, o gestor tem a opção de gerar um lançamento já vinculado, sem redigitar as informações (botão "Gerar lançamento" em requisições `A caminho`/`Comprado` — não existe status "Aprovado" no sistema)
 
 ### Tarefa 7.6 — Relatórios exportáveis (PDF) e comparação entre obras
 - **Prioridade:** P1
