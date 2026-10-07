@@ -1,6 +1,8 @@
 def create_categorias_tables(cursor):
     """
-    Cria as tabelas de Categorias e Contas e insere os registros iniciais padrao.
+    Cria as tabelas de Categorias e Contas e insere as categorias iniciais padrao.
+    Contas não têm seed: cada empresa cadastra as suas (eram nomes reais da
+    obra original, que apareciam para todo cliente novo).
     """
     # Tabela de Categorias
     cursor.execute('''
@@ -32,8 +34,3 @@ def create_categorias_tables(cursor):
             cursor.executemany("INSERT INTO categorias (nome, projeto_id) VALUES (?, ?)", [(c, pid) for c in categorias_iniciais])
             cursor.execute("SELECT setval(pg_get_serial_sequence('categorias', 'id'), COALESCE((SELECT MAX(id) FROM categorias), 1))")
 
-        cursor.execute("SELECT COUNT(*) FROM contas")
-        if cursor.fetchone()[0] == 0:
-            contas_iniciais = ["FF Alves Construtora","Victor Praça Pascoal","Vanderlei Almeida Simões","SPE Luiz Pascoal"]
-            cursor.executemany("INSERT INTO contas (nome, projeto_id) VALUES (?, ?)", [(c, pid) for c in contas_iniciais])
-            cursor.execute("SELECT setval(pg_get_serial_sequence('contas', 'id'), COALESCE((SELECT MAX(id) FROM contas), 1))")

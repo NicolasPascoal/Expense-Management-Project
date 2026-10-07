@@ -10,7 +10,7 @@ O **Expense Management Project** é uma aplicação web para **gestão financeir
 - **Tarefas** atribuídas a prestadores, com acompanhamento de status.
 - **Controle de acesso** com dois papéis efetivamente implementados: administrador (`is_admin=1`) e prestador (`role='prestador'`).
 
-O nome do projeto seed padrão (`Obra Itanhaém`) e os nomes de contas seed (`FF Alves Construtora`, `Victor Praça Pascoal`, `Vanderlei Almeida Simões`, `SPE Luiz Pascoal`) indicam fortemente que este é um sistema **construído para um caso de uso real e específico** (uma obra/empreendimento familiar/societário), não um produto genérico de mercado desde a concepção — embora a arquitetura de "projeto com colunas dinâmicas" já demonstre uma tentativa de generalização para múltiplas obras.
+O nome do projeto seed original (`Obra Itanhaém`) e as contas que vinham pré-cadastradas (nomes reais de pessoas/empresas da obra original — removidas como padrão em 2026-10-07; hoje cada empresa cadastra as suas) indicam fortemente que este é um sistema **construído para um caso de uso real e específico** (uma obra/empreendimento familiar/societário), não um produto genérico de mercado desde a concepção — embora a arquitetura de "projeto com colunas dinâmicas" já demonstre uma tentativa de generalização para múltiplas obras.
 
 ## 2. Motivação de negócio (inferida do código e do roadmap)
 

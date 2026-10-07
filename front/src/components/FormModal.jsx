@@ -17,7 +17,9 @@ export function FormModal({
 
   const getOptions = (col) => {
     if (col.name === 'categoria') return categoriasDb.length ? categoriasDb.map(c => c.nome) : (col.options || []);
-    if (col.name === 'conta') return contasDb.length ? contasDb.map(c => c.nome) : (col.options || []);
+    // Só as contas cadastradas: obras antigas têm uma lista fixa gravada em
+    // col.options (nomes da obra original) que não deve mais aparecer.
+    if (col.name === 'conta') return contasDb.map(c => c.nome);
     if (col.name === 'forma') return (col.options && col.options.length) ? col.options : FORMAS;
     return col.options || [];
   };
@@ -53,7 +55,11 @@ export function FormModal({
                   onChange={handleForm}
                   style={inputStyle}
                 >
-                  <option value="">Selecione...</option>
+                  <option value="">
+                    {col.name === "conta" && contasDb.length === 0
+                      ? "Nenhuma conta cadastrada — adicione na aba Serviços"
+                      : "Selecione..."}
+                  </option>
                   {getOptions(col).map(opt => (
                     <option key={opt} value={opt}>{opt}</option>
                   ))}

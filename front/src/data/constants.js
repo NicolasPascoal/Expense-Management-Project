@@ -1,5 +1,4 @@
 export const CATEGORIAS = ["Documentação","Terraplanagem","Fundação","Ferramentas","Material de construção","Mão de obra","Mao de obra","Equipamentos/aluguel","Taxas e impostos","Radier Encanamento","Alvenaria","Laje","Telhado","Hidráulica","Elétrica","Encanamento","EPI","Madeireira","Contabilidade","Abertura Empresa","Portas e Batentes","Geral","Imposto","Diversos","Outros"];
-export const CONTAS = ["FF Alves Construtora","Victor Praça Pascoal","Vanderlei Almeida Simões","SPE Luiz Pascoal"];
 export const FORMAS = ["Pix","Crédito","Débito","Boleto","Dinheiro","Transferência","TED"];
 
 export const EMPTY_FORM = {data:"",categoria:"",item:"",fornecedor:"",quantidade:1,unitario:"",valor:"",forma:"Pix",conta:"",obs:""};
@@ -17,7 +16,8 @@ export const DEFAULT_COLUMNS = [
   { name: "unitario", label: "Unitário (R$)", type: "text" },
   { name: "valor", label: "Valor Pago (R$)", type: "text", fullWidth: true },
   { name: "forma", label: "Forma", type: "select", options: FORMAS },
-  { name: "conta", label: "Conta", type: "select", options: CONTAS },
+  // Sem options: contas vêm só do que a empresa cadastrou (aba Serviços)
+  { name: "conta", label: "Conta", type: "select" },
   { name: "obs", label: "Observações", type: "textarea", fullWidth: true }
 ];
 
