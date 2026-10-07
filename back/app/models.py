@@ -97,6 +97,8 @@ class RequisicaoMaterial(db.Model):
     material = db.Column(db.Text, nullable=False)
     status = db.Column(db.String(50), default="Pendente")
     data_criacao = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())
+    # Tarefa 7.5: lançamento gerado a partir desta requisição
+    lancamento_id = db.Column(db.Integer, db.ForeignKey("lancamentos_v2.id", ondelete="SET NULL"), nullable=True)
 
     usuario = db.relationship("Usuario", back_populates="requisicoes")
 

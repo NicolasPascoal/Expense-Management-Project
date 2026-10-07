@@ -421,12 +421,29 @@ export function useExpenses() {
           unitario: parseVal(form.unitario)
         });
         setDados([...dados, novo]);
+        // Atualiza o indicador "Lançado" na aba Materiais (Tarefa 7.5)
+        if (form.requisicao_id) fetchRequisicoes();
       }
       setForm({});
       setShowForm(false);
-    } catch {
-      alert("Erro ao salvar lançamento");
+    } catch (err) {
+      // Na geração a partir de requisição o backend explica o motivo
+      // (ex.: já lançada, status não permite) — vale mostrar.
+      alert("Erro ao salvar lançamento" + (form.requisicao_id ? ": " + err.message : ""));
     }
+  };
+
+  // Tarefa 7.5: abre o formulário de lançamento pré-preenchido com os dados
+  // da requisição, na obra ativa. O gestor completa valor/fornecedor e confirma.
+  const gerarLancamentoDeRequisicao = (requisicao) => {
+    setEditId(null);
+    setForm({
+      data: new Date().toLocaleDateString("pt-BR"),
+      item: requisicao.material,
+      obs: `Requisição #${requisicao.id} de ${requisicao.nome} (${requisicao.funcao})`,
+      requisicao_id: requisicao.id
+    });
+    setShowForm(true);
   };
 
   const startEdit = row => {
@@ -708,6 +725,7 @@ export function useExpenses() {
     confirmConfig, setConfirmConfig,
     askConfirm,
     handleForm,
+    gerarLancamentoDeRequisicao,
     saveForm,
     startEdit,
     exportCSV,

@@ -37,9 +37,10 @@ Legenda de proteção:
 
 ### `POST /api/lancamentos`
 - **Proteção**: `token_required` + `non_prestador_required` (corrigido em 2026-07-08).
-- **Body**: `{ "projeto_id": int, ...campos dinâmicos... }`
-- **Erros**: `400` se `projeto_id` ausente.
-- **Regra**: o `projeto_id` é retirado do payload antes de serializar o restante como JSON em `dados`.
+- **Body**: `{ "projeto_id": int, "requisicao_id"?: int, ...campos dinâmicos... }`
+- **Erros**: `400` se `projeto_id` ausente ou de obra que o usuário não acessa (Tarefa 6.2).
+- **Regra**: `projeto_id` e `requisicao_id` são retirados do payload antes de serializar o restante como JSON em `dados`.
+- **Gerar a partir de requisição (Tarefa 7.5)**: com `requisicao_id`, o lançamento é criado e gravado em `requisicoes_materiais.lancamento_id` numa única transação (linha da requisição travada com `FOR UPDATE`). Erros: `403` sem a permissão `aprovar_requisicoes`; `400` se `requisicao_id` não for inteiro ou se o status não for `A caminho`/`Comprado`; `404` se a requisição não for da empresa; `409` se ela já tiver lançamento. A auditoria registra `"<item> (requisição #N)"`.
 
 ### `PUT /api/lancamentos/:id`
 - **Proteção**: `token_required` + `non_prestador_required` (corrigido em 2026-07-08).
