@@ -29,7 +29,7 @@ Legenda de proteção:
 - **Proteção**: `token_required` + `non_prestador_required` (corrigido em 2026-07-08).
 - **Query params**: `projeto_id` (opcional — se ausente, retorna lançamentos de **todos** os projetos).
 - **Resposta (200)**: array de objetos com os campos dinâmicos do projeto "achatados" no nível raiz (ex.: `{id, projeto_id, data, categoria, valor, ...}`).
-- **Observação de autorização**: `role='prestador'` recebe `403`. Ainda não há checagem de propriedade de projeto — qualquer usuário não-prestador pode listar lançamentos de qualquer projeto (depende de multi-tenancy, Épico 1).
+- **Observação de autorização**: papel sem `acesso_financeiro` (ex.: `prestador`) recebe `403`. Resultado filtrado pela empresa do token e, para não-admin, pelas obras vinculadas ao usuário (Tarefa 6.2) — pedir `projeto_id` de obra não vinculada devolve lista vazia.
 
 ### `GET /api/lancamentos/:id`
 - **Proteção**: `token_required` + `non_prestador_required` (corrigido em 2026-07-08).
@@ -58,7 +58,7 @@ Legenda de proteção:
 ### `GET /api/projetos`
 - **Proteção**: `token_required`.
 - **Resposta**: array de `{id, nome, colunas: [...]}` — `colunas` é desserializado de JSON para array de objetos antes de responder.
-- **Atenção**: `SELECT * FROM projetos` sem filtro — retorna projetos de **todas** as empresas, mesmo já existindo `empresa_id` na tabela. Isolamento por tenant é a Tarefa 1.2, ainda não implementada.
+- **Filtro**: só projetos da empresa do token (Tarefa 1.2); para não-admin, só os vinculados ao usuário em `usuario_projetos` (Tarefa 6.2). Usuário sem vínculo recebe `[]`.
 
 ### `POST /api/projetos`
 - **Proteção**: `admin_required`.
@@ -105,13 +105,19 @@ Legenda de proteção:
 
 ### `GET /api/usuarios`
 - **Proteção**: `admin_required`.
-- **Resposta**: array de `{id, username, is_admin, role}` — **sem** o hash de senha (a query seleciona colunas explicitamente, não usa `SELECT *`).
+- **Resposta**: array de `{id, username, is_admin, role, projeto_ids}` — **sem** o hash de senha (a query seleciona colunas explicitamente, não usa `SELECT *`). `projeto_ids` (Tarefa 6.2) lista as obras vinculadas, ordenadas; para admin é irrelevante (acessa todas).
 
 ### `POST /api/usuarios`
 - **Proteção**: `admin_required`.
 - **Body**: `{ "username", "password", "is_admin"?: bool, "role"?: string }` — se `role` não for enviado, é derivado de `is_admin` (`'admin'` ou `'prestador'`).
 - **Sucesso (201)**: `{ "id", "username", "is_admin": bool, "role", "empresa_id" }` — `empresa_id` gravado é o da empresa do admin autenticado (`g.user['empresa_id']`), não vem do body (Tarefa 1.1, roadmap SaaS).
 - **Erros**: `400` se `username`/`password` ausentes, ou se `username` já existir (violação de `UNIQUE` — ainda global, não composto por empresa; capturada como exceção genérica).
+
+### `PUT /api/usuarios/:id/projetos`
+- **Proteção**: `admin_required` (Tarefa 6.2).
+- **Body**: `{ "projeto_ids": [int, ...] }` — **substitui** o conjunto inteiro de obras vinculadas ao usuário (`[]` remove todas).
+- **Sucesso (200)**: `{ "id", "projeto_ids": [...] }`.
+- **Erros**: `400` se `projeto_ids` não for lista de inteiros, se alguma obra não for da empresa (nada é alterado), ou se o alvo for admin; `404` se o usuário não for da empresa.
 
 ### `DELETE /api/usuarios/:id`
 - **Proteção**: `admin_required`.

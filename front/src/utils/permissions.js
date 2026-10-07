@@ -1,9 +1,9 @@
 // Papéis expandidos (Tarefa 6.1) — espelha back/app/utils/permissions.py.
-// 'gestor_obra' não tem "acesso_financeiro" de propósito: a Tarefa 6.2 é quem
-// vai restringir isso por obra gerenciada.
+// Desde a Tarefa 6.2, "acesso_financeiro" de não-admin vale só nas obras às
+// quais o usuário está vinculado — o recorte é feito pelo backend.
 export const PERMISSOES_POR_PAPEL = {
   financeiro: new Set(["acesso_financeiro"]),
-  gestor_obra: new Set(["aprovar_requisicoes", "gerenciar_tarefas"]),
+  gestor_obra: new Set(["acesso_financeiro", "aprovar_requisicoes", "gerenciar_tarefas"]),
   prestador: new Set(),
 };
 

@@ -1,14 +1,16 @@
 from flask import Blueprint, jsonify, g
 from app.database.db import get_db_connection
-from app.utils.auth_middleware import token_required, non_prestador_required
+from app.utils.auth_middleware import admin_required
 
 auditoria_bp = Blueprint('auditoria', __name__)
 
 LIMITE_PADRAO = 100
 
+# Só admin (Tarefa 6.2): a auditoria não guarda a obra de cada evento, então
+# não dá para filtrá-la pelos vínculos de um usuário com acesso restrito —
+# liberar para financeiro/gestor_obra vazaria atividade de obras alheias.
 @auditoria_bp.route('/auditoria', methods=['GET'])
-@token_required
-@non_prestador_required
+@admin_required
 def listar_auditoria():
     conn = get_db_connection()
     cursor = conn.cursor()

@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, g
 from app.controller.usuarios_controller import (
-    get_todos_usuarios, criar_usuario, deletar_usuario
+    get_todos_usuarios, criar_usuario, deletar_usuario, definir_projetos_usuario
 )
 from app.utils.auth_middleware import admin_required
 
@@ -35,3 +35,10 @@ def remover_usuario(id):
     if deletar_usuario(id, g.user['empresa_id']):
         return jsonify({'mensagem': 'Usuário removido'}), 200
     return jsonify({'erro': 'Não foi possível remover o usuário'}), 400
+
+@usuarios_bp.route('/usuarios/<int:id>/projetos', methods=['PUT'])
+@admin_required
+def atualizar_projetos_usuario(id):
+    dados = request.get_json(silent=True) or {}
+    res, status_code = definir_projetos_usuario(id, dados.get('projeto_ids'), g.user['empresa_id'])
+    return jsonify(res), status_code

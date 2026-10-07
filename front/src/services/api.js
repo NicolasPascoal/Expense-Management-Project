@@ -158,6 +158,14 @@ export const api = {
     });
   },
 
+  // Substitui as obras às quais o usuário tem acesso (Tarefa 6.2)
+  async setProjetosUsuario(id, projetoIds) {
+    return callApi(`${API_URL}/usuarios/${id}/projetos`, {
+      method: 'PUT',
+      body: JSON.stringify({ projeto_ids: projetoIds })
+    });
+  },
+
   // Requisições de Materiais
   async getRequisicoes() {
     return callApi(`${API_URL}/requisicoes`);

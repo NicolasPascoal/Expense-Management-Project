@@ -9,7 +9,7 @@ const PAPEIS = [
   { valor: "prestador", label: "Prestador" },
 ];
 
-export function AdminTab({ askConfirm, usuarios, fetchUsuarios }) {
+export function AdminTab({ askConfirm, usuarios, fetchUsuarios, projetos }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("prestador");
@@ -36,6 +36,21 @@ export function AdminTab({ askConfirm, usuarios, fetchUsuarios }) {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Tarefa 6.2: marca/desmarca uma obra para o usuário. Admin não aparece
+  // aqui — acessa todas as obras da empresa sem precisar de vínculo.
+  const handleToggleProjeto = async (usuario, projetoId) => {
+    const atuais = usuario.projeto_ids || [];
+    const novos = atuais.includes(projetoId)
+      ? atuais.filter(id => id !== projetoId)
+      : [...atuais, projetoId];
+    try {
+      await api.setProjetosUsuario(usuario.id, novos);
+      fetchUsuarios();
+    } catch (err) {
+      alert(err.message);
     }
   };
 
@@ -108,6 +123,7 @@ export function AdminTab({ askConfirm, usuarios, fetchUsuarios }) {
             <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
               <th style={{ padding: "12px 16px", textAlign: "left", fontSize: 13, color: "#64748b" }}>Usuário</th>
               <th style={{ padding: "12px 16px", textAlign: "left", fontSize: 13, color: "#64748b" }}>Permissão / Role</th>
+              <th style={{ padding: "12px 16px", textAlign: "left", fontSize: 13, color: "#64748b" }}>Obras</th>
               <th style={{ padding: "12px 16px", textAlign: "right" }}></th>
             </tr>
           </thead>
@@ -139,6 +155,32 @@ export function AdminTab({ askConfirm, usuarios, fetchUsuarios }) {
                   }}>
                     {PAPEIS.find(p => p.valor === u.role)?.label || u.role || "USUÁRIO"}
                   </span>
+                </td>
+                <td style={{ padding: "12px 16px", fontSize: 13 }}>
+                  {u.is_admin ? (
+                    <span style={{ color: "#64748b" }}>Todas</span>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      {projetos.map(p => (
+                        // O <label> global do App.css é mono/minúsculo com !important —
+                        // o nome da obra vai num <span> para manter a grafia original.
+                        <label key={p.id} style={{ cursor: "pointer", margin: 0 }}>
+                          <input
+                            type="checkbox"
+                            checked={(u.projeto_ids || []).includes(p.id)}
+                            onChange={() => handleToggleProjeto(u, p.id)}
+                            style={{ marginRight: 6, verticalAlign: "middle" }}
+                          />
+                          <span style={{ fontFamily: "'Inter', system-ui, sans-serif", fontSize: 13, color: "#334155", textTransform: "none", verticalAlign: "middle" }}>
+                            {p.nome}
+                          </span>
+                        </label>
+                      ))}
+                      {(u.projeto_ids || []).length === 0 && (
+                        <span style={{ color: "#ef4444", fontSize: 11 }}>Sem acesso a nenhuma obra</span>
+                      )}
+                    </div>
+                  )}
                 </td>
                 <td style={{ padding: "12px 16px", textAlign: "right" }}>
                   {u.id !== 1 && (

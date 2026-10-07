@@ -138,6 +138,8 @@ export function useExpenses() {
   };
 
   const fetchAuditoria = async () => {
+    // Timeline é só para admin desde a Tarefa 6.2 (a auditoria não guarda a obra)
+    if (!user?.is_admin) return;
     try {
       const res = await api.getAuditoria();
       setAuditoria(res);

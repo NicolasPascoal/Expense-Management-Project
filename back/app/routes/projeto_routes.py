@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, g
 from app.database.db import get_db_connection
 from app.utils.auth_middleware import token_required, admin_required
+from app.utils.tenant import filtro_vinculo, usuario_restrito
 import json
 
 projeto_bp = Blueprint('projetos', __name__)
@@ -8,9 +9,11 @@ projeto_bp = Blueprint('projetos', __name__)
 @projeto_bp.route('/projetos', methods=['GET'])
 @token_required
 def listar_projetos():
+    # Tarefa 6.2: não-admin só vê as obras às quais está vinculado.
+    vinculo, params_vinculo = filtro_vinculo(usuario_restrito(g.user), 'id')
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM projetos WHERE empresa_id = ?', (g.user['empresa_id'],))
+    cursor.execute('SELECT * FROM projetos WHERE empresa_id = ?' + vinculo, (g.user['empresa_id'],) + params_vinculo)
     projetos = [dict(row) for row in cursor.fetchall()]
     
     # Parse as colunas de JSON string para objeto
