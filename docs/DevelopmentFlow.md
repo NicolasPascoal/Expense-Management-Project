@@ -37,7 +37,7 @@ docker compose up --build
 
 Isso sobe, na ordem correta de dependência:
 1. **`db_postgres`** — Postgres 15, com healthcheck (`pg_isready`) que os demais serviços aguardam antes de subir.
-2. **`backend`** — build a partir de `back/Dockerfile`, executa `gunicorn -w 4 -b 0.0.0.0:5000 main:app`. Na inicialização do processo Flask (`create_app()`), `init_db()` roda automaticamente — não é necessário nenhum passo manual de "criar banco" antes do primeiro uso.
+2. **`backend`** — build a partir de `back/Dockerfile`. Antes do gunicorn, roda `python migrar_banco.py` (`init_db()` + `stamp` da baseline se o banco não tem `alembic_version` + `alembic upgrade head`, ver seção 6.1); se falhar, o container não sobe. Depois executa `gunicorn -w 4 -b 0.0.0.0:5000 main:app` — não é necessário nenhum passo manual de "criar banco" ou "migrar" antes do primeiro uso.
 3. **`frontend`** — build multi-stage (`node:20-alpine` compila, `nginx:alpine` serve), expõe a porta `3050` (mapeada para a porta `80` do container Nginx).
 
 Acesso, após subir:
@@ -57,8 +57,11 @@ python -m venv venv
 source venv/bin/activate  # ou venv\Scripts\activate no Windows
 pip install -r requirements.txt
 # configurar back/.env com PGHOST=localhost e um Postgres já rodando localmente
+python migrar_banco.py   # aplica migrations pendentes (rodar de novo após puxar mudanças com migration nova)
 python main.py
 ```
+
+`main.py` só roda o `init_db()` (via `create_app()`), não o Alembic — por isso, ao puxar uma revision nova em `migrations/versions/`, rode `python migrar_banco.py` no banco local. É idempotente.
 
 - Se `FLASK_DEBUG=True`: sobe com o servidor embutido do Flask (`app.run(debug=True, ...)`), com hot-reload, na porta 5000.
 - Se `FLASK_DEBUG=False` (ou ausente): `main.py` importa e usa **Waitress** (não Gunicorn) como servidor — o comentário no próprio código (`"Servidor de produção no Windows"`) indica que esse caminho existe especificamente para permitir rodar em produção **em uma máquina Windows**, onde o Gunicorn (usado no Dockerfile) não é suportado nativamente.
@@ -96,8 +99,15 @@ FROM python:3.11-slim
 apt-get install gcc libpq-dev      # dependências nativas para compilar psycopg2, se necessário
 pip install -r requirements.txt
 COPY . .
-CMD gunicorn -w 4 -b 0.0.0.0:5000 main:app
+CMD sh -c "python migrar_banco.py && exec gunicorn -w 4 -b 0.0.0.0:5000 main:app"
 ```
+`migrar_banco.py` (idempotente, roda antes dos workers):
+1. `init_db()` — cria schema e seeds. É ele quem cria um banco do zero: a migration baseline `61a73b52f4cf` **não serve para isso**, porque não tem os server defaults do SQL do `init_db` (ex.: `requisicoes_materiais.status DEFAULT 'Pendente'`).
+2. Se o banco não tem `alembic_version` (ex.: staging, criado só pelo `init_db` antes desta mudança), faz `stamp` na baseline.
+3. `alembic upgrade head` — aplica as revisions posteriores.
+
+Aborta se `TEST_PGDATABASE` estiver definido e diferente de `PGDATABASE` (o `migrations/env.py` prefere o primeiro, o `init_db` usa o segundo). O CI roda o script duas vezes num Postgres vazio antes do `pytest`, exercitando o mesmo caminho do deploy.
+
 4 workers Gunicorn, cada um com seu próprio pool de conexões ao banco (ver `Performance.md`, seção 5, para a implicação disso no número total de conexões simultâneas ao Postgres).
 
 ### 6.2 Frontend (build multi-stage)

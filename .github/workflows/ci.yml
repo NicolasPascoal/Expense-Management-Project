@@ -47,6 +47,9 @@ jobs:
       - name: Lint (ruff)
         run: ruff check app
 
+      - name: Migrations (mesmo caminho do deploy, 2x para provar idempotência)
+        run: python migrar_banco.py && python migrar_banco.py
+
       - name: Testes (pytest)
         run: pytest -q
 

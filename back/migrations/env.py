@@ -1,3 +1,4 @@
+import logging
 import os
 from logging.config import fileConfig
 from urllib.parse import quote_plus
@@ -14,7 +15,11 @@ config = context.config
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
-if config.config_file_name is not None:
+# Só configura logging pelo alembic.ini quando ninguém configurou antes (uso
+# via CLI `alembic ...`). Rodando por dentro de migrar_banco.py, o logging JSON
+# do app já está ativo — fileConfig trocaria o handler raiz e silenciaria os
+# logs do próprio script.
+if config.config_file_name is not None and not logging.getLogger().handlers:
     fileConfig(config.config_file_name)
 
 # Mesmas env vars PG* usadas por app/database/db.py e app/__init__.py —
