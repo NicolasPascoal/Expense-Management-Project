@@ -91,8 +91,12 @@ html, body {
   display: flex;
   flex-direction: column;
   padding: 32px 40px;
+  /* Sem z-index de propósito: com ele, .main-content vira um contexto de
+     empilhamento abaixo da .sidebar (z-index 50) e os modais renderizados
+     aqui dentro (.modal-overlay, z-index 100) ficavam atrás da sidebar.
+     O conteúdo já fica acima do grid de fundo (.tech-grid::before) por
+     vir depois dele na árvore e ter background próprio. */
   position: relative;
-  z-index: 1;
   background-color: var(--bg);
   min-width: 0;
 }
