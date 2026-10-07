@@ -4,14 +4,15 @@ conjunto explícito de permissões — substitui o antigo padrão "libera tudo
 exceto prestador" por uma lista de permissão positiva, mais segura por
 padrão (um papel desconhecido não ganha acesso nenhum).
 
-'gestor_obra' não tem 'acesso_financeiro' de propósito: a Tarefa 6.2 (ainda
-não implementada) é quem vai restringir esse acesso por obra gerenciada —
-conceder acesso financeiro amplo agora teria que ser revogado depois.
+Desde a Tarefa 6.2, 'acesso_financeiro' de qualquer papel não-admin vale só
+para as obras às quais o usuário está vinculado (usuario_projetos) — o recorte
+por obra é feito nas queries (app/utils/tenant.py), não aqui. Por isso
+'gestor_obra' passou a ter 'acesso_financeiro': ele só vê as obras dele.
 """
 
 PERMISSOES_POR_PAPEL = {
     'financeiro': {'acesso_financeiro'},
-    'gestor_obra': {'aprovar_requisicoes', 'gerenciar_tarefas'},
+    'gestor_obra': {'acesso_financeiro', 'aprovar_requisicoes', 'gerenciar_tarefas'},
     'prestador': set(),
 }
 

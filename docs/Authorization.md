@@ -29,7 +29,7 @@ Desde a Tarefa 1.3 do roadmap SaaS, existe um **ponto único de autenticação**
 ### 2.3 `@non_prestador_required`
 
 - Aplicado **depois** de `@token_required`; retorna `403` para `role='prestador'`.
-- Protege os módulos de dado financeiro (lançamentos, categorias, contas, orçamentos, entradas, auditoria).
+- Protege os módulos de dado financeiro (lançamentos, categorias, contas, orçamentos, entradas). Desde a Tarefa 6.2, a permissão vale só nas obras vinculadas ao usuário (ver §5); a auditoria passou a ser `admin_required`.
 
 ## 3. Problemas de consistência identificados (apenas documentados)
 
@@ -75,11 +75,17 @@ def atualizar_tarefa(tarefa_id, dados, usuario_id, is_admin):
 
 Este é o único módulo do sistema que combina **três níveis de controle** ao mesmo tempo: (1) autenticação, (2) papel do usuário, e (3) propriedade do recurso específico sendo acessado. É o padrão mais próximo de um controle de acesso "correto" para este tipo de sistema, e serve como referência do nível de granularidade que os demais módulos financeiros **não têm**.
 
-## 5. Controle de acesso por empresa (tenant) — ✅ implementado; por obra — pendente
+## 5. Controle de acesso por empresa (tenant) e por obra — ✅ implementados
 
 Desde a Tarefa 1.2 (2026-07-17), a unidade de autorização é **a empresa (tenant)**: toda leitura filtra por `empresa_id` do token e toda escrita valida posse do recurso antes de agir (ver `docs/Database.md` e `back/app/utils/tenant.py`). Um usuário nunca lê/edita dado de outra empresa, mesmo via chamada direta à API.
 
-O que **ainda não existe** é granularidade por **obra dentro da mesma empresa**: qualquer não-prestador da empresa acessa qualquer projeto dela. Isso é a Tarefa 6.2 do roadmap (usuário↔obra com papel por vínculo), dependente dos papéis expandidos da Tarefa 6.1.
+Desde a Tarefa 6.2 (2026-10-07) existe também granularidade por **obra dentro da mesma empresa**, via tabela `usuario_projetos` (ver `docs/Database.md` §6.2):
+
+- **Admin** acessa todas as obras da empresa, sem precisar de vínculo.
+- **Qualquer outro papel** (financeiro, gestor_obra, prestador) só enxerga e age sobre as obras às quais está vinculado — `GET /projetos` e todas as rotas financeiras filtram/validam pelo vínculo. Obra não vinculada responde igual a obra de outra empresa (lista vazia, `404` em leitura/edição/exclusão por id, `400 projeto_id inválido` na criação).
+- O papel continua **global** (não há papel por vínculo — decisão A da Tarefa 6.2, ver `STATUS.md`); o vínculo diz apenas *onde* o papel vale. Com isso, `gestor_obra` ganhou `acesso_financeiro`.
+- Implementação: `usuario_acessa_projeto(user, projeto_id)` (criação) e `filtro_vinculo(usuario_id)` (trecho SQL acrescentado às queries de leitura/exclusão), em `back/app/utils/tenant.py`. Testes em `back/tests/test_acesso_por_obra.py`.
+- **Fora do recorte por obra**: requisições de material e tarefas não têm `projeto_id` — continuam escopadas só por empresa (o gestor aprova requisições da empresa inteira). `GET /auditoria` virou admin-only porque o log também não guarda a obra.
 
 ## 6. Matriz de autorização efetiva (estado atual do código — testada em `back/tests/test_autorizacao.py` e `test_tenant_isolation.py`)
 
@@ -88,14 +94,15 @@ Todas as rotas autenticadas também aplicam **isolamento por tenant** (Tarefa 1.
 | Endpoint | Decorator | Checagem adicional |
 |---|---|---|
 | `POST /login` | Nenhum (público) | — |
-| `GET/POST/PUT/DELETE /lancamentos*` | `token_required` + `non_prestador_required` | Posse do `projeto_id` na criação |
-| `GET/POST/DELETE /categorias*`, `/contas*` | `token_required` + `non_prestador_required` | Posse do `projeto_id` na criação |
-| `GET/POST/DELETE /orcamentos*` | `token_required` + `non_prestador_required` | Posse do `projeto_id` + categoria pertence ao projeto |
-| `GET/POST/DELETE /entradas*` | `token_required` + `non_prestador_required` | Posse do `projeto_id`; valor > 0 |
-| `GET /auditoria` | `token_required` + `non_prestador_required` | Filtra por `empresa_id` (últimos 100) |
-| `GET /projetos` | `token_required` | Filtra por `empresa_id` |
+| `GET/POST/PUT/DELETE /lancamentos*` | `token_required` + `non_prestador_required` | Não-admin: só obras vinculadas (leitura, edição, exclusão e criação) |
+| `GET/POST/DELETE /categorias*`, `/contas*` | `token_required` + `non_prestador_required` | Não-admin: só obras vinculadas |
+| `GET/POST/DELETE /orcamentos*` | `token_required` + `non_prestador_required` | Não-admin: só obras vinculadas; categoria pertence ao projeto |
+| `GET/POST/DELETE /entradas*` | `token_required` + `non_prestador_required` | Não-admin: só obras vinculadas; valor > 0 |
+| `GET /auditoria` | `admin_required` (Tarefa 6.2) | Filtra por `empresa_id` (últimos 100) |
+| `GET /projetos` | `token_required` | Filtra por `empresa_id`; não-admin: só obras vinculadas |
 | `POST/PUT/DELETE /projetos*` | `admin_required` | Posse do projeto em PUT/DELETE |
 | `GET/POST/DELETE /usuarios*` | `admin_required` | Alvo da exclusão pertence à empresa; proteção do `id=1` |
+| `PUT /usuarios/:id/projetos` | `admin_required` | Usuário e obras pertencem à empresa; alvo não pode ser admin |
 | `GET /requisicoes` | `token_required` | Admin: filtra por empresa; não-admin: filtra por dono |
 | `POST /requisicoes` | `token_required` | Usuário só cria para si mesmo, por design |
 | `PUT /requisicoes/:id/status` | `admin_required` | Requisição pertence à empresa |

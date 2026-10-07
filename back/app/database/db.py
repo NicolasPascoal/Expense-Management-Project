@@ -200,6 +200,7 @@ from app.database.modelTarefas import create_tarefas_tables
 from app.database.modelOrcamentos import create_orcamentos_tables
 from app.database.modelEntradas import create_entradas_tables
 from app.database.modelAuditoria import create_auditoria_tables
+from app.database.modelUsuarioProjetos import create_usuario_projetos_tables
 
 def init_db():
     """
@@ -219,6 +220,7 @@ def init_db():
     create_orcamentos_tables(cursor)
     create_entradas_tables(cursor)
     create_auditoria_tables(cursor)
+    create_usuario_projetos_tables(cursor)
 
     conn.commit()
     conn.close()

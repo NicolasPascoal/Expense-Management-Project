@@ -151,3 +151,14 @@ class Auditoria(db.Model):
     acao = db.Column(db.String(20), nullable=False)
     detalhes = db.Column(db.Text, nullable=True)
     criado_em = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())
+
+
+class UsuarioProjeto(db.Model):
+    """Vínculo usuário↔obra (Tarefa 6.2). Sem papel por vínculo: o papel
+    continua sendo o global do usuário (decisão registrada no STATUS.md)."""
+    __tablename__ = "usuario_projetos"
+    __table_args__ = (db.UniqueConstraint("usuario_id", "projeto_id"),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False)
+    projeto_id = db.Column(db.Integer, db.ForeignKey("projetos.id", ondelete="CASCADE"), nullable=False)

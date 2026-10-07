@@ -184,12 +184,12 @@ def test_financeiro_nao_lista_usuarios(papeis):
         assert status == 403
 
 
-def test_gestor_obra_nao_acessa_lancamentos(papeis):
-    """Tarefa 6.2 (ainda não implementada) é quem vai dar acesso financeiro
-    escopado por obra — até lá, gestor_obra não tem acesso_financeiro nenhum."""
+def test_gestor_obra_acessa_lancamentos(papeis):
+    """Desde a Tarefa 6.2 gestor_obra tem acesso_financeiro, escopado às obras
+    vinculadas — o recorte por obra é coberto em test_acesso_por_obra.py."""
     with _app.test_request_context(headers={"Authorization": f"Bearer {papeis['token_gestor_obra']}"}):
         resposta, status = lancamentos_routes.listar_lancamentos()
-        assert status == 403
+        assert status == 200
 
 
 def test_gestor_obra_aprova_requisicao(papeis):

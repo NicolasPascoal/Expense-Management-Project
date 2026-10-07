@@ -100,9 +100,19 @@ Cada `create_*_tables()` também insere dados padrão **se a tabela estiver vazi
 
 `usuarios.empresa_id` e `projetos.empresa_id` (`NOT NULL REFERENCES empresas(id)`) existem desde esta tarefa, e o JWT emitido no login passa a incluir `empresa_id` (ver `Authentication.md`). **Isso ainda não implica isolamento entre empresas**: nenhuma query de leitura hoje filtra por `empresa_id` — essa é a Tarefa 1.2 (middleware de isolamento), ainda não implementada. Ver `STATUS.md` e `docs/Roadmap-SaaS-Construtoras.md`.
 
+Isolamento por empresa foi implementado depois, na Tarefa 1.2 (ver `docs/Authorization.md` §5).
+
 Para bancos que já existiam antes desta tarefa (ex.: ambiente de desenvolvimento atual), rodar `back/migrate_add_empresas.py` uma vez para fazer o backfill de `empresa_id` nos dados existentes — instalações novas já nascem com o schema correto via `init_db()`.
 
 **Motivo**: garantir que uma instância recém-criada do sistema já tenha dados mínimos utilizáveis (projeto padrão, categorias, contas, um usuário para login inicial), sem exigir um passo manual de setup. O efeito colateral é que os nomes de contas/projeto seed são específicos de um caso de uso real (não genéricos), reforçando que este sistema foi construído para uma necessidade concreta e não abstraída como "produto" genérico desde o início.
+
+### 6.2 Vínculo usuário↔obra (Tarefa 6.2)
+
+Tabela `usuario_projetos` (`id SERIAL`, `usuario_id` → `usuarios` ON DELETE CASCADE, `projeto_id` → `projetos` ON DELETE CASCADE, `UNIQUE (usuario_id, projeto_id)`), criada por `modelUsuarioProjetos.py` no `init_db()` e espelhada em `app/models.py` + migration Alembic `b3e9d2a4c7f1` (idempotente). Define quais obras um usuário **não-admin** acessa; admin não usa vínculo.
+
+- `id SERIAL` existe só por causa do wrapper de cursor (§4): ele roda `SELECT lastval()` após todo `INSERT`, o que abortaria a transação numa tabela sem sequência.
+- **Backfill único**: quando a tabela é criada pela primeira vez, todo não-admin é vinculado a todas as obras da própria empresa (preserva o acesso anterior). Só roda na criação — vínculo removido pelo admin não volta no próximo boot. Escrito como CTE (`WITH ... INSERT`) para não disparar o `lastval()` do wrapper quando não há linhas a inserir.
+- Fica no `init_db()` (e não só na migration) porque o deploy não roda `alembic upgrade`.
 
 ## 7. Scripts de manutenção e migração (fora do runtime da API)
 

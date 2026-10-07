@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, g
 from app.controller.orcamentos_controller import get_orcamentos, upsert_orcamento, deletar_orcamento
 from app.utils.auth_middleware import token_required, non_prestador_required
-from app.utils.tenant import projeto_pertence_a_empresa
+from app.utils.tenant import usuario_acessa_projeto, usuario_restrito
 from app.database.db import get_db_connection
 
 orcamentos_bp = Blueprint('orcamentos', __name__)
@@ -19,7 +19,7 @@ def _categoria_pertence_ao_projeto(categoria_id, projeto_id):
 @non_prestador_required
 def listar_orcamentos():
     projeto_id = request.args.get('projeto_id')
-    return jsonify(get_orcamentos(g.user['empresa_id'], projeto_id)), 200
+    return jsonify(get_orcamentos(g.user['empresa_id'], projeto_id, usuario_restrito(g.user))), 200
 
 @orcamentos_bp.route('/orcamentos', methods=['POST'])
 @token_required
@@ -33,7 +33,7 @@ def salvar_orcamento():
     if not projeto_id or not categoria_id or valor_orcado is None:
         return jsonify({'erro': 'projeto_id, categoria_id e valor_orcado são obrigatórios'}), 400
 
-    if not projeto_pertence_a_empresa(projeto_id, g.user['empresa_id']):
+    if not usuario_acessa_projeto(g.user, projeto_id):
         return jsonify({'erro': 'projeto_id inválido'}), 400
 
     if not _categoria_pertence_ao_projeto(categoria_id, projeto_id):
@@ -53,6 +53,6 @@ def salvar_orcamento():
 @token_required
 @non_prestador_required
 def remover_orcamento(id):
-    if deletar_orcamento(id, g.user['empresa_id']):
+    if deletar_orcamento(id, g.user['empresa_id'], usuario_restrito(g.user)):
         return jsonify({'mensagem': 'Orçamento removido'}), 200
     return jsonify({'erro': 'Não encontrado'}), 404
