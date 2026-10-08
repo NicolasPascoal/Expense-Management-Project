@@ -37,7 +37,10 @@ def test_projetos_exige_empresa_id(db_session):
 
 
 def test_login_retorna_empresa_id_no_token(db_session):
-    resultado = login_usuario("admin", "admin")
+    # Usuário próprio do teste: o admin seed não tem mais senha fixa (admin/admin)
+    # — num banco novo, como o do CI, ela é aleatória (pacote "usuários e acesso").
+    criar_usuario("login_empresa_id", "senha123", empresa_id=1, is_admin=0, role="prestador")
+    resultado = login_usuario("login_empresa_id", "senha123")
     assert resultado is not None
     assert resultado["user"]["empresa_id"] == 1
 
