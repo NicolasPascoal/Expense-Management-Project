@@ -36,7 +36,9 @@ O sistema usa **JSON Web Tokens** assinados com o algoritmo simétrico **HS256**
 
 **`empresa_id`** foi adicionado na Tarefa 1.1 do roadmap SaaS (multi-tenancy). Hoje ele só identifica a que empresa o usuário pertence — nenhuma rota ainda valida esse campo para restringir acesso a dados de outra empresa (isso é a Tarefa 1.2, ainda não implementada). `admin_required` também passou a popular `g.user` com o payload completo (antes só validava `is_admin` e descartava o payload), para que rotas administrativas consigam ler `g.user['empresa_id']`.
 
-**Motivo de incluir `is_admin` e `role` diretamente no payload do token** (em vez de apenas o `id` e consultar o banco a cada requisição): evita uma query adicional ao banco de dados em toda requisição autenticada só para saber o papel do usuário — o middleware decodifica o JWT (operação criptográfica local, sem I/O) e já tem a informação de autorização disponível. O trade-off dessa decisão é que, se o papel de um usuário for alterado (ex.: promovido a admin, ou rebaixado), **essa mudança só terá efeito no próximo login** — o token antigo, ainda válido por até 24h, continua carregando o papel antigo até expirar. Não há revogação de token nem verificação em tempo real contra o banco a cada requisição.
+> **Atualizado em 2026-10-07 (pacote "usuários e acesso")**: o parágrafo abaixo descreve a decisão original. Hoje `_autenticar()` **consulta o usuário no banco a cada requisição** (uma query por chave primária): usuário apagado ou com `ativo = FALSE` recebe `401` na hora, e `is_admin`/`role`/`empresa_id` de `g.user` vêm do banco, não do token — mudança de papel vale na próxima requisição. O token passou a ter `iat`; tokens emitidos antes de `usuarios.senha_alterada_em` (troca ou redefinição de senha) são recusados, e token sem `iat` conta como anterior a qualquer troca.
+
+**Motivo original de incluir `is_admin` e `role` diretamente no payload do token** (em vez de apenas o `id` e consultar o banco a cada requisição): evita uma query adicional ao banco de dados em toda requisição autenticada só para saber o papel do usuário — o middleware decodifica o JWT (operação criptográfica local, sem I/O) e já tem a informação de autorização disponível. O trade-off dessa decisão é que, se o papel de um usuário for alterado (ex.: promovido a admin, ou rebaixado), **essa mudança só terá efeito no próximo login** — o token antigo, ainda válido por até 24h, continua carregando o papel antigo até expirar. Não há revogação de token nem verificação em tempo real contra o banco a cada requisição.
 
 ## 4. Armazenamento do token no cliente
 
@@ -68,9 +70,9 @@ const TIMEOUT_MS = 15 * 60 * 1000; // 15 minutos
 
 ## 8. Pontos sem tratamento (apenas documentados aqui — não corrigidos nesta etapa)
 
-- Não há política de complexidade/tamanho mínimo de senha em nenhuma camada (backend nem frontend).
+- ~~Não há política de tamanho mínimo de senha~~ — desde 2026-10-07, mínimo de 6 caracteres no cadastro público, na criação de usuário pelo admin e nas trocas/redefinições de senha (sem regra de complexidade).
 - Não há *rate limiting* no endpoint `/login` — nenhuma proteção contra tentativas de força bruta (nem por IP, nem por usuário, nem CAPTCHA).
-- Não há mecanismo de "esqueci minha senha" / recuperação de conta — a única forma de resetar uma senha é um administrador excluir e recriar o usuário, ou rodar um script manual (`create_admin.py`) diretamente no servidor.
+- Não há "esqueci minha senha" por e-mail (depende do provedor de e-mail, ADR-003). Desde 2026-10-07 existem: troca da própria senha (`PUT /me/senha`, pede a senha atual) e redefinição pelo admin (`PUT /usuarios/:id/senha`) — ambas encerram as sessões abertas da pessoa.
 - Não há autenticação multifator (MFA/2FA).
 - Não há registro de tentativas de login (bem-sucedidas ou falhas) — nenhum log de auditoria de acesso.
 - A variável `JWT_SECRET_KEY`, usada para assinar e validar todos os tokens, está commitada em texto plano no arquivo `back/.env`, versionado no Git (ver `Security.md` para o detalhamento do risco).

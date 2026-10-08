@@ -17,6 +17,10 @@ PERMISSOES_POR_PAPEL = {
 }
 
 
+# Papéis aceitos ao criar/editar usuário: admin + os da matriz acima.
+PAPEIS_VALIDOS = ('admin', *PERMISSOES_POR_PAPEL)
+
+
 def tem_permissao(user, permissao):
     """is_admin sempre passa (autoridade máxima); caso contrário, checa o
     conjunto de permissões do papel. Papel desconhecido nunca tem permissão."""

@@ -152,10 +152,46 @@ export const api = {
     });
   },
 
+  // Desativa (não apaga): o histórico da pessoa fica e dá para reativar
   async deleteUsuario(id) {
     return callApi(`${API_URL}/usuarios/${id}`, {
       method: 'DELETE'
     });
+  },
+
+  async reativarUsuario(id) {
+    return callApi(`${API_URL}/usuarios/${id}/reativar`, { method: 'POST' });
+  },
+
+  async updateUsuarioRole(id, role) {
+    return callApi(`${API_URL}/usuarios/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ role })
+    });
+  },
+
+  async redefinirSenhaUsuario(id, novaSenha) {
+    return callApi(`${API_URL}/usuarios/${id}/senha`, {
+      method: 'PUT',
+      body: JSON.stringify({ nova_senha: novaSenha })
+    });
+  },
+
+  // Troca a própria senha; a troca invalida o token atual, então o backend
+  // devolve um novo (mesmo formato do login) e ele substitui a sessão.
+  async trocarMinhaSenha(senhaAtual, novaSenha) {
+    const data = await callApi(`${API_URL}/me/senha`, {
+      method: 'PUT',
+      body: JSON.stringify({ senha_atual: senhaAtual, nova_senha: novaSenha })
+    });
+    sessionStorage.setItem('token', data.token);
+    sessionStorage.setItem('user', JSON.stringify(data.user));
+    return data;
+  },
+
+  // Configuração pública (sem login): hoje só diz se o cadastro está aberto
+  async getConfig() {
+    return callApi(`${API_URL}/config`);
   },
 
   // Substitui as obras às quais o usuário tem acesso (Tarefa 6.2)

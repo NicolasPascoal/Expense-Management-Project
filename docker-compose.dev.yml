@@ -47,6 +47,11 @@ services:
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:?defina JWT_SECRET_KEY nas variáveis do stack}
       - FLASK_DEBUG=False
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-*}
+      # Admin inicial (só em banco vazio; sem senha, gera aleatória no log)
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      # Cadastro público de construtoras — desligado por padrão
+      - SIGNUP_ENABLED=${SIGNUP_ENABLED:-false}
     depends_on:
       db_postgres:
         condition: service_healthy

@@ -26,7 +26,9 @@ Além disso, `docker-compose.yml` também tinha esses dois valores reais hardcod
 
 **Correção aplicada**: o script agora lê `ADMIN_USERNAME`/`ADMIN_PASSWORD` de variável de ambiente e falha com mensagem clara se ausentes, em vez de usar valores fixos. **Se o script `nicolas`/`nicolas12` já foi executado contra o banco de produção em algum momento**, esse usuário existe hoje com essa senha — precisa ser tratado como o item 1.1 (senha trocada ou usuário removido), independentemente da correção no código-fonte.
 
-#### 1.3 Senha de administrador seed previsível
+#### 1.3 Senha de administrador seed previsível — ✅ corrigido para instalações novas em 2026-10-07
+**Correção**: num banco vazio, o admin inicial usa `ADMIN_USERNAME`/`ADMIN_PASSWORD`; sem `ADMIN_PASSWORD`, gera uma senha aleatória e a escreve **uma vez** no log de inicialização (logger `gabaro.seed`). Existe troca de senha pela UI (`PUT /me/senha`) e redefinição pelo admin. Bancos já existentes (ex.: staging) mantêm o admin que tinham — o texto abaixo continua valendo para eles.
+
 `app/database/modelUsuarios.py` cria automaticamente, na primeira inicialização de um banco vazio, um usuário `admin` com senha `admin` (hash aplicado, mas a senha original é trivial). Se uma nova instância do sistema for provisionada e essa senha não for trocada imediatamente, existe uma conta administrativa com credencial obviamente adivinhável.
 
 **Risco aceito conscientemente na stack de dev/staging (Umbrel/Portainer, `docker-compose.dev.yml`, 2026-07-30)**: mantido `admin`/`admin` de propósito — ambiente só acessível via VPN, uso restrito a duas pessoas conhecidas (usuário e familiar), sem dados reais de produção. Não há endpoint de troca de senha pela própria UI hoje (`usuarios_routes.py` só tem GET/POST/DELETE); a única forma de trocar é rodando `create_admin.py` no console do container. **Revisitar antes de**: expor esse ambiente fora da VPN, colocar dados reais nele, ou promovê-lo a produção de fato.
@@ -81,10 +83,14 @@ Em `utils/auth_middleware.py`, o decorator `admin_required` usa um bloco `except
 #### 3.4 Sem HTTPS/TLS configurado no proxy do frontend
 `front/nginx.conf` expõe a aplicação apenas na porta 80 (HTTP puro), sem qualquer configuração de TLS/HTTPS, HSTS, ou redirecionamento de HTTP para HTTPS. Presume-se que, se isso é servido publicamente, exista um proxy/balanceador externo (não presente neste repositório) fazendo a terminação TLS — mas isso não está documentado em lugar nenhum do projeto.
 
-#### 3.5 Sem expiração/revogação de token além do tempo fixo
+#### 3.5 Sem expiração/revogação de token além do tempo fixo — ⚠️ mitigado em 2026-10-07
+**Mitigação**: a autenticação consulta o usuário no banco a cada requisição — usuário desativado ou apagado perde o acesso na hora, papel vem do banco, e troca/redefinição de senha invalida tokens emitidos antes dela (`iat` vs `usuarios.senha_alterada_em`). **Continua valendo**: o logout da UI não invalida o token no servidor (um token copiado segue válido até expirar, a menos que a senha seja trocada ou o usuário desativado). O texto abaixo é a análise original.
+
 Como não há uma lista de tokens revogados (blacklist) nem verificação em tempo real contra o banco a cada requisição, um token roubado (por exemplo, via XSS, dado que fica em `sessionStorage` acessível a JavaScript) continua **totalmente válido** por até 24 horas, mesmo que o usuário faça logout manual na interface (o logout apenas limpa o armazenamento local do navegador — não invalida o token no lado do servidor).
 
 #### 3.6 Cadastro público sem verificação de e-mail nem captcha — risco aceito conscientemente em 2026-08-01
+**Atualização 2026-10-07**: o cadastro público agora é **desligado por padrão** (`SIGNUP_ENABLED`); com ele desligado, `POST /signup` responde `404` e a tela de login esconde "Criar conta". O risco abaixo só existe onde ele for ligado de propósito.
+
 `POST /api/signup` (Tarefa 5.1, `STATUS.md`) é uma rota pública, sem autenticação, que cria empresa + usuário admin + projeto ativados na hora. Só tem rate limiting (5/hora por IP, reaproveitado da Tarefa 2.2) como barreira contra abuso — sem verificação de e-mail nem captcha.
 
 **Por que foi aceito**: verificação de e-mail depende de ADR-003 (provedor de e-mail transacional, pendente — ver `docs/Decisions.md`), decisão de fornecedor do usuário. Captcha também depende de fornecedor externo (reCAPTCHA/hCaptcha/Turnstile), não escolhido. Hoje o app não está exposto publicamente (roda local ou na VPN do Umbrel — ver `docs/Decisions.md`/memória de infra), então o risco prático de abuso automatizado é baixo.

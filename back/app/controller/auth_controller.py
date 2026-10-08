@@ -18,14 +18,18 @@ def login_usuario(username, password):
     usuario = cursor.fetchone()
     conn.close()
 
-    if usuario and check_password_hash(usuario['password'], password):
+    # Desativado: mesma resposta de senha errada (não revela que a conta existe)
+    if usuario and usuario['ativo'] and check_password_hash(usuario['password'], password):
+        agora = datetime.datetime.now(datetime.timezone.utc)
         token = jwt.encode({
             'id': usuario['id'],
             'username': usuario['username'],
             'is_admin': usuario['is_admin'],
             'role': usuario['role'],
             'empresa_id': usuario['empresa_id'],
-            'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+            # iat: permite invalidar tokens emitidos antes de uma troca de senha
+            'iat': int(agora.timestamp()),
+            'exp': agora + datetime.timedelta(hours=24)
         }, SECRET_KEY, algorithm="HS256")
 
         return {

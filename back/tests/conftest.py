@@ -35,6 +35,7 @@ _MODULOS_COM_GET_DB_CONNECTION = [
     "app.controller.orcamentos_controller",
     "app.controller.entradas_controller",
     "app.utils.tenant",
+    "app.utils.auth_middleware",
     "app.utils.auditoria",
     "app.routes.projeto_routes",
     "app.routes.requisicao_routes",
