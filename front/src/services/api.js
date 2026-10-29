@@ -64,6 +64,14 @@ export const api = {
     });
   },
 
+  // Itens de uma nota: grava todos ou nenhum
+  async createLancamentosEmLote(projetoId, lancamentos) {
+    return callApi(`${API_URL}/lancamentos/lote`, {
+      method: 'POST',
+      body: JSON.stringify({ projeto_id: projetoId, lancamentos })
+    });
+  },
+
   async updateLancamento(id, dados) {
     return callApi(`${API_URL}/lancamentos/${id}`, {
       method: 'PUT',

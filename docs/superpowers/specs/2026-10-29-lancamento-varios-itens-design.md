@@ -1,7 +1,7 @@
 # Lançamento com vários itens (nota com mais de um produto)
 
 - **Data:** 2026-10-29
-- **Status:** desenho aprovado; especificação aguardando revisão antes da implementação
+- **Status:** implementado em 2026-10-29
 - **Branch:** `feat/lancamento-varios-itens`
 
 ## 1. Problema

@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { api } from "../services/api";
 import { DEFAULT_COLUMNS } from "../data/constants";
-import { parseVal } from "../utils/format";
+import { parseVal, calcularValor } from "../utils/format";
 
 export function useExpenses() {
   const [tab, setTab] = useState("dashboard");
@@ -388,24 +388,32 @@ export function useExpenses() {
     setForm(f=>{
       const nf = {...f,[name]:value};
       if(name==="quantidade"||name==="unitario"){
-        const q=parseFloat(nf.quantidade)||0;
-        const u=parseVal(nf.unitario)||0;
-        nf.valor = q&&u ? (q*u).toFixed(2) : nf.valor;
+        nf.valor = calcularValor(nf.quantidade, nf.unitario, nf.valor);
       }
       return nf;
     });
   };
 
-  const saveForm = async () => {
+  // itens: linhas de uma nota com vários itens (já validadas pelo FormModal).
+  // Cada uma vira um lançamento com os campos comuns de `form`.
+  const saveForm = async (itens) => {
     if (!projetoAtivo) return;
-    
+
     // Validação básica se as colunas padrão existirem
     if(projetoAtivo.colunas.some(c => c.name === 'data') && !form.data) {
         return alert("O campo Data é obrigatório.");
     }
-    
+
     try {
-      if(editId) {
+      if (itens) {
+        const novos = await api.createLancamentosEmLote(projetoAtivo.id, itens.map(it => ({
+          ...form,
+          ...it,
+          valor: parseVal(it.valor),
+          unitario: parseVal(it.unitario)
+        })));
+        setDados(d => [...d, ...novos]);
+      } else if(editId) {
         const updated = await api.updateLancamento(editId, {
           ...form,
           valor: parseVal(form.valor),
@@ -429,6 +437,7 @@ export function useExpenses() {
     } catch (err) {
       // Na geração a partir de requisição o backend explica o motivo
       // (ex.: já lançada, status não permite) — vale mostrar.
+      if (itens) return alert("Nenhum item foi salvo: " + err.message);
       alert("Erro ao salvar lançamento" + (form.requisicao_id ? ": " + err.message : ""));
     }
   };
