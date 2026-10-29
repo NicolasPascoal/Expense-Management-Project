@@ -1,7 +1,8 @@
 from flask import Blueprint, request, jsonify, g
 from app.controller.lancamentos_controller import (
     get_todos_lancamentos, get_lancamento_por_id, criar_lancamento,
-    atualizar_lancamento, deletar_lancamento, criar_lancamento_de_requisicao
+    atualizar_lancamento, deletar_lancamento, criar_lancamento_de_requisicao,
+    criar_lancamentos_em_lote
 )
 from app.utils.auth_middleware import token_required, non_prestador_required
 from app.utils.tenant import usuario_acessa_projeto, usuario_restrito
@@ -57,6 +58,44 @@ def novo_lancamento():
 
     log_auditoria(g.user['empresa_id'], g.user['id'], 'lancamento', novo['id'], 'criar', detalhes)
     return jsonify(novo), 201
+
+MAX_LANCAMENTOS_POR_LOTE = 100
+
+@lancamentos_bp.route('/lancamentos/lote', methods=['POST'])
+@token_required
+@non_prestador_required
+def novos_lancamentos_em_lote():
+    """Itens de uma nota: cada item vira um lançamento normal, gravados
+    todos juntos ou nenhum (ver docs/superpowers/specs/2026-10-29-*)."""
+    dados = request.get_json(silent=True) or {}
+    projeto_id = dados.get('projeto_id')
+
+    if not projeto_id:
+        return jsonify({'erro': 'projeto_id é obrigatório'}), 400
+    if not usuario_acessa_projeto(g.user, projeto_id):
+        return jsonify({'erro': 'projeto_id inválido'}), 400
+
+    lista = dados.get('lancamentos')
+    if not isinstance(lista, list) or not lista:
+        return jsonify({'erro': 'Envie ao menos um lançamento'}), 400
+    if len(lista) > MAX_LANCAMENTOS_POR_LOTE:
+        return jsonify({'erro': f'Máximo de {MAX_LANCAMENTOS_POR_LOTE} lançamentos por vez'}), 400
+
+    payloads = []
+    for posicao, item in enumerate(lista, start=1):
+        if not isinstance(item, dict):
+            return jsonify({'erro': f'Lançamento inválido na posição {posicao}'}), 400
+        if 'requisicao_id' in item:
+            return jsonify({'erro': 'Lançamento de requisição não pode ser criado em lote'}), 400
+        payloads.append({k: v for k, v in item.items() if k not in ['id', 'projeto_id']})
+
+    novos = criar_lancamentos_em_lote(projeto_id, payloads, g.user['empresa_id'])
+
+    sufixo = f' (nota com {len(novos)} itens)' if len(novos) > 1 else ''
+    for novo, payload in zip(novos, payloads):
+        detalhes = payload.get('item') or payload.get('categoria') or ''
+        log_auditoria(g.user['empresa_id'], g.user['id'], 'lancamento', novo['id'], 'criar', detalhes + sufixo)
+    return jsonify(novos), 201
 
 @lancamentos_bp.route('/lancamentos/<int:id>', methods=['PUT'])
 @token_required

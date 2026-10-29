@@ -71,6 +71,29 @@ def criar_lancamento(projeto_id, dados, empresa_id):
     conn.close()
     return get_lancamento_por_id(novo_id, empresa_id)
 
+def criar_lancamentos_em_lote(projeto_id, lista, empresa_id):
+    """Cria vários lançamentos (itens de uma nota) numa única transação: ou
+    todos são gravados, ou nenhum. Retorna-os na ordem recebida.
+    O chamador (rota) deve validar antes a lista e o acesso a projeto_id."""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        ids = []
+        for dados in lista:
+            cursor.execute(
+                'INSERT INTO lancamentos_v2 (projeto_id, dados) VALUES (?, ?)',
+                (projeto_id, json.dumps(dados))
+            )
+            ids.append(cursor.lastrowid)
+        conn.commit()
+    except Exception:
+        # Explícito: não depende do pool desfazer a transação ao fechar.
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+    return [get_lancamento_por_id(novo_id, empresa_id) for novo_id in ids]
+
 def atualizar_lancamento(id, dados, empresa_id, usuario_id=None):
     if get_lancamento_por_id(id, empresa_id, usuario_id) is None:
         return None

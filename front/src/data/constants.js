@@ -6,6 +6,10 @@ export const CAT_COLORS = {"Documentação":"#7c3aed","Terraplanagem":"#d97706",
 
 export const BAR_COLORS = ["#2563eb","#16a34a","#dc2626","#d97706","#7c3aed","#0891b2","#be185d","#65a30d","#ea580c"];
 
+// Colunas preenchidas por item numa nota com vários itens; as demais colunas
+// da obra são comuns a todos os itens da nota.
+export const COLUNAS_DO_ITEM = ["item", "quantidade", "unitario", "valor"];
+
 export const DEFAULT_COLUMNS = [
   { name: "data", label: "Data", type: "text" },
   // Sem options: categorias vêm do banco (toda obra nova nasce com as padrão)

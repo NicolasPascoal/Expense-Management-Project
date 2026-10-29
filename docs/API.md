@@ -42,6 +42,14 @@ Legenda de proteção:
 - **Regra**: `projeto_id` e `requisicao_id` são retirados do payload antes de serializar o restante como JSON em `dados`.
 - **Gerar a partir de requisição (Tarefa 7.5)**: com `requisicao_id`, o lançamento é criado e gravado em `requisicoes_materiais.lancamento_id` numa única transação (linha da requisição travada com `FOR UPDATE`). Erros: `403` sem a permissão `aprovar_requisicoes`; `400` se `requisicao_id` não for inteiro ou se o status não for `A caminho`/`Comprado`; `404` se a requisição não for da empresa; `409` se ela já tiver lançamento. A auditoria registra `"<item> (requisição #N)"`.
 
+### `POST /api/lancamentos/lote`
+- **Proteção**: `token_required` + `non_prestador_required` (mesma do `POST /api/lancamentos`).
+- **Uso**: itens de uma nota com vários produtos (formulário "Novo Lançamento", desde 2026-10-29). Cada item vira um lançamento normal; os campos comuns da nota vêm repetidos em cada item.
+- **Body**: `{ "projeto_id": int, "lancamentos": [ { ...campos dinâmicos... }, ... ] }` — até 100 itens.
+- **Resposta (201)**: array com os lançamentos criados, no formato do `GET /api/lancamentos` e na ordem enviada.
+- **Erros (nada é gravado)**: `400` se `projeto_id` ausente ou de obra que o usuário não acessa; se `lancamentos` não for lista, vier vazia ou passar de 100; se algum item não for objeto (`"Lançamento inválido na posição N"`) ou tiver `requisicao_id` (lançamento de requisição continua pelo `POST /api/lancamentos`). `403` para papel sem `acesso_financeiro`.
+- **Regra**: `id` e `projeto_id` dentro dos itens são descartados. Todos os itens são gravados numa única transação — ou todos, ou nenhum. A auditoria registra um `criar` por lançamento, com o sufixo `" (nota com N itens)"` quando N > 1.
+
 ### `PUT /api/lancamentos/:id`
 - **Proteção**: `token_required` + `non_prestador_required` (corrigido em 2026-07-08).
 - **Body**: campos a atualizar (o `id` e `projeto_id` do corpo são descartados; o `projeto_id` original do banco não é alterado por este endpoint).
