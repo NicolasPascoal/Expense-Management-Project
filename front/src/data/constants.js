@@ -1,4 +1,3 @@
-export const CATEGORIAS = ["Documentação","Terraplanagem","Fundação","Ferramentas","Material de construção","Mão de obra","Mao de obra","Equipamentos/aluguel","Taxas e impostos","Radier Encanamento","Alvenaria","Laje","Telhado","Hidráulica","Elétrica","Encanamento","EPI","Madeireira","Contabilidade","Abertura Empresa","Portas e Batentes","Geral","Imposto","Diversos","Outros"];
 export const FORMAS = ["Pix","Crédito","Débito","Boleto","Dinheiro","Transferência","TED"];
 
 export const EMPTY_FORM = {data:"",categoria:"",item:"",fornecedor:"",quantidade:1,unitario:"",valor:"",forma:"Pix",conta:"",obs:""};
@@ -9,7 +8,8 @@ export const BAR_COLORS = ["#2563eb","#16a34a","#dc2626","#d97706","#7c3aed","#0
 
 export const DEFAULT_COLUMNS = [
   { name: "data", label: "Data", type: "text" },
-  { name: "categoria", label: "Categoria", type: "select", options: CATEGORIAS },
+  // Sem options: categorias vêm do banco (toda obra nova nasce com as padrão)
+  { name: "categoria", label: "Categoria", type: "select" },
   { name: "item", label: "Item / Descrição", type: "text", fullWidth: true },
   { name: "fornecedor", label: "Fornecedor", type: "text", fullWidth: true },
   { name: "quantidade", label: "Qtd", type: "number" },

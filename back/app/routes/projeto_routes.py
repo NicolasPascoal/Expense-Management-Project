@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify, g
 from app.database.db import get_db_connection
+from app.database.modelCategoria import criar_categorias_padrao
 from app.utils.auth_middleware import token_required, admin_required
 from app.utils.tenant import filtro_vinculo, usuario_restrito
 import json
@@ -43,6 +44,7 @@ def criar_projeto():
         (nome, json.dumps(colunas), g.user['empresa_id'])
     )
     projeto_id = cursor.lastrowid
+    criar_categorias_padrao(cursor, projeto_id)
     conn.commit()
     conn.close()
 

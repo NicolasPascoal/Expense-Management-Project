@@ -4,8 +4,9 @@ import psycopg2
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import generate_password_hash
 
+from app.database.modelCategoria import CATEGORIAS_PADRAO
 from app.extensions import db
-from app.models import Empresa, Projeto, Usuario
+from app.models import Categoria, Empresa, Projeto, Usuario
 
 USERNAME_MIN = 3
 PASSWORD_MIN = 6
@@ -40,11 +41,14 @@ def cadastrar_construtora(nome_empresa, username, password, colunas=None):
             role="admin",
             empresa_id=empresa.id,
         ))
-        db.session.add(Projeto(
+        projeto = Projeto(
             nome=NOME_PROJETO_INICIAL,
             colunas=json.dumps(colunas or []),
             empresa_id=empresa.id,
-        ))
+        )
+        db.session.add(projeto)
+        db.session.flush()  # popula projeto.id para as categorias padrão
+        db.session.add_all(Categoria(nome=nome, projeto_id=projeto.id) for nome in CATEGORIAS_PADRAO)
 
         db.session.commit()
         return {"empresa_id": empresa.id}, 201

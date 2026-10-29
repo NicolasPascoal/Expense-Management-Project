@@ -16,9 +16,10 @@ export function FormModal({
   if (!projetoAtivo) return null;
 
   const getOptions = (col) => {
-    if (col.name === 'categoria') return categoriasDb.length ? categoriasDb.map(c => c.nome) : (col.options || []);
-    // Só as contas cadastradas: obras antigas têm uma lista fixa gravada em
-    // col.options (nomes da obra original) que não deve mais aparecer.
+    // Só as categorias/contas cadastradas: obras antigas têm uma lista fixa
+    // gravada em col.options que não existe no banco. Mostrá-la quando não
+    // havia nenhuma cadastrada fazia ela "sumir" ao cadastrar a primeira.
+    if (col.name === 'categoria') return categoriasDb.map(c => c.nome);
     if (col.name === 'conta') return contasDb.map(c => c.nome);
     if (col.name === 'forma') return (col.options && col.options.length) ? col.options : FORMAS;
     return col.options || [];
@@ -58,7 +59,9 @@ export function FormModal({
                   <option value="">
                     {col.name === "conta" && contasDb.length === 0
                       ? "Nenhuma conta cadastrada — adicione na aba Serviços"
-                      : "Selecione..."}
+                      : col.name === "categoria" && categoriasDb.length === 0
+                        ? "Nenhuma categoria cadastrada — adicione na aba Serviços"
+                        : "Selecione..."}
                   </option>
                   {getOptions(col).map(opt => (
                     <option key={opt} value={opt}>{opt}</option>
