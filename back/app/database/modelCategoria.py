@@ -1,3 +1,14 @@
+# Toda obra nova nasce com estas categorias (criação de obra, cadastro público e
+# seed do init_db). Antes só a primeira obra do banco as recebia; as demais
+# mostravam uma lista fixa do frontend que sumia ao cadastrar a primeira
+# categoria. A migration f6d2b8c4e1a7 tem uma cópia congelada desta lista.
+CATEGORIAS_PADRAO = ["Documentação","Terraplanagem","Fundação","Ferramentas","Material de construção","Mão de obra","Equipamentos/aluguel","Taxas e impostos","Outros"]
+
+
+def criar_categorias_padrao(cursor, projeto_id):
+    cursor.executemany("INSERT INTO categorias (nome, projeto_id) VALUES (?, ?)", [(c, projeto_id) for c in CATEGORIAS_PADRAO])
+
+
 def create_categorias_tables(cursor):
     """
     Cria as tabelas de Categorias e Contas e insere as categorias iniciais padrao.
@@ -30,7 +41,6 @@ def create_categorias_tables(cursor):
         
         cursor.execute("SELECT COUNT(*) FROM categorias")
         if cursor.fetchone()[0] == 0:
-            categorias_iniciais = ["Documentação","Terraplanagem","Fundação","Ferramentas","Material de construção","Mão de obra","Equipamentos/aluguel","Taxas e impostos","Outros"]
-            cursor.executemany("INSERT INTO categorias (nome, projeto_id) VALUES (?, ?)", [(c, pid) for c in categorias_iniciais])
+            criar_categorias_padrao(cursor, pid)
             cursor.execute("SELECT setval(pg_get_serial_sequence('categorias', 'id'), COALESCE((SELECT MAX(id) FROM categorias), 1))")
 
