@@ -1,6 +1,9 @@
 import { labelStyle, inputStyle, btnStyle } from "../utils/styles";
 import { FORMAS } from "../data/constants";
 
+// Ignora maiúsculas e acentos ("ébano" entre "Documentação" e "Ferramentas").
+const ordemAlfabetica = new Intl.Collator("pt-BR", { sensitivity: "base" });
+
 export function FormModal({
   form,
   editId,
@@ -19,7 +22,10 @@ export function FormModal({
     // Só as categorias/contas cadastradas: obras antigas têm uma lista fixa
     // gravada em col.options que não existe no banco. Mostrá-la quando não
     // havia nenhuma cadastrada fazia ela "sumir" ao cadastrar a primeira.
-    if (col.name === 'categoria') return categoriasDb.map(c => c.nome);
+    // Ordenado aqui, não só no ORDER BY do backend: a ordenação do Postgres
+    // depende do locale do banco (no postgres:alpine é por byte — minúsculas
+    // e acentos iniciais vão para o fim da lista).
+    if (col.name === 'categoria') return categoriasDb.map(c => c.nome).sort(ordemAlfabetica.compare);
     if (col.name === 'conta') return contasDb.map(c => c.nome);
     if (col.name === 'forma') return (col.options && col.options.length) ? col.options : FORMAS;
     return col.options || [];
