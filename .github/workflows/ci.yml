@@ -76,6 +76,51 @@ jobs:
       - name: Build
         run: npm run build
 
+  # Configuração de produção (docs/Deploy.md): compose e Caddyfile válidos, e o
+  # serviço de backup gera um dump que de fato restaura (mesmos comandos da
+  # seção 9.1 do Deploy.md). Não sobe o Caddy: sem DNS real não há certificado.
+  producao:
+    runs-on: ubuntu-latest
+    env:
+      DOMINIO: gabaro.exemplo.com.br
+      PGPASSWORD: senha-de-teste-ci
+      JWT_SECRET_KEY: chave-de-teste-ci-nao-usar-em-producao
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: senha-de-teste-ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validar docker-compose.yml
+        run: docker compose config --quiet
+
+      - name: Validar Caddyfile
+        run: >-
+          docker run --rm -e DOMINIO
+          -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro"
+          caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
+
+      - name: Subir banco e backend (cria o schema)
+        run: |
+          docker compose up -d --build db_postgres backend
+          for i in $(seq 1 60); do docker compose logs backend | grep -q "Booting worker" && break; sleep 2; done
+          docker compose logs backend | grep -q "Booting worker"
+
+      - name: Backup gera dump e o dump restaura
+        run: |
+          docker compose up -d --build backup
+          for i in $(seq 1 30); do docker compose logs backup | grep -q "backup local:" && break; sleep 2; done
+          docker compose logs backup
+          ARQ=$(ls -t backups/*.dump | head -1)
+          docker compose exec -T db_postgres createdb -U postgres teste_restauracao
+          docker compose exec -T db_postgres pg_restore --no-owner -U postgres -d teste_restauracao < "$ARQ"
+          USUARIOS=$(docker compose exec -T db_postgres psql -tA -U postgres -d teste_restauracao -c "select count(*) from usuarios")
+          echo "usuários no backup restaurado: $USUARIOS"
+          test "$USUARIOS" -ge 1
+
+      - name: Logs em caso de falha
+        if: failure()
+        run: docker compose logs
+
   deploy-staging:
     runs-on: [self-hosted, umbrel]
     needs: [backend, frontend]

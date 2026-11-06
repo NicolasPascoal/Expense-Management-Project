@@ -1,0 +1,7 @@
+# Porta de entrada da produção: HTTPS com certificado automático (Let's
+# Encrypt) para o DOMINIO do .env, repassando tudo ao nginx do frontend
+# (que serve o React e encaminha /api ao backend).
+{$DOMINIO} {
+	encode gzip
+	reverse_proxy frontend:80
+}

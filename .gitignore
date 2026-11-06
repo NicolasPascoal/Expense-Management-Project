@@ -1,0 +1,6 @@
+# Segredos do docker compose de produção (modelo: .env.example) — nunca commitar
+.env
+
+# Gerados no servidor pelo serviço de backup / configuração do rclone (tem token do Google Drive)
+backups/
+rclone/

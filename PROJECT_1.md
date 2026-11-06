@@ -62,9 +62,9 @@ npm run lint      # única ferramenta de qualidade estática do repo (não há l
 npm run build
 ```
 
-### Tudo junto (Docker)
+### Produção (Docker, VPS)
 ```bash
-docker compose up --build     # sobe db_postgres, backend (:5000) e frontend (:3050)
+docker compose up -d --build  # banco, backend, frontend, Caddy (HTTPS 80/443) e backup diário — ver docs/Deploy.md
 ```
 
 ### Testes

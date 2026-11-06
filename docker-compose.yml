@@ -1,5 +1,10 @@
 version: "3.8"
 
+# Produção (VPS). Só o Caddy fica exposto (80/443, HTTPS automático); banco
+# e backend só são acessíveis pela rede interna do Docker. Segredos e o
+# domínio vêm do .env na raiz (modelo: .env.example). Passo a passo de
+# instalação, migração de dados, atualização e restauração: docs/Deploy.md.
+
 services:
   db_postgres:
     image: postgres:15-alpine
@@ -9,8 +14,6 @@ services:
       - POSTGRES_USER=${PGUSER:-postgres}
       - POSTGRES_PASSWORD=${PGPASSWORD:?defina PGPASSWORD no .env}
       - POSTGRES_DB=${PGDATABASE:-expense_management}
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -30,8 +33,6 @@ services:
     build: ./back
     container_name: meu_projeto_backend
     restart: always
-    ports:
-      - "5000:5000"
     environment:
       - PGUSER=${PGUSER:-postgres}
       - PGPASSWORD=${PGPASSWORD:?defina PGPASSWORD no .env}
@@ -40,7 +41,9 @@ services:
       - PGDATABASE=${PGDATABASE:-expense_management}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:?defina JWT_SECRET_KEY no .env}
       - FLASK_DEBUG=False
-      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-*}
+      - CORS_ALLOWED_ORIGINS=https://${DOMINIO:?defina DOMINIO no .env}
+      # Caddy → nginx do frontend → backend: IP real do cliente no rate limit
+      - PROXY_HOPS=2
       # Admin inicial (só em banco vazio; sem senha, gera aleatória no log)
       - ADMIN_USERNAME=${ADMIN_USERNAME:-}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
@@ -57,15 +60,59 @@ services:
     build: ./front
     container_name: meu_projeto_frontend
     restart: always
-    ports:
-      - "3050:80"
     depends_on:
       - backend
     networks:
       - rede_projeto
 
+  # --- HTTPS (porta de entrada) ---
+  caddy:
+    image: caddy:2-alpine
+    container_name: meu_projeto_caddy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMINIO=${DOMINIO:?defina DOMINIO no .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+    networks:
+      - rede_projeto
+
+  # --- BACKUP DIÁRIO ---
+  backup:
+    build: ./deploy/backup
+    container_name: meu_projeto_backup
+    restart: always
+    environment:
+      - PGUSER=${PGUSER:-postgres}
+      - PGPASSWORD=${PGPASSWORD:?defina PGPASSWORD no .env}
+      - PGHOST=db_postgres
+      - PGDATABASE=${PGDATABASE:-expense_management}
+      - BACKUP_HORA_UTC=${BACKUP_HORA_UTC:-6}
+      - BACKUP_RETENCAO_DIAS=${BACKUP_RETENCAO_DIAS:-14}
+      - BACKUP_RETENCAO_REMOTA_DIAS=${BACKUP_RETENCAO_REMOTA_DIAS:-60}
+      - RCLONE_DESTINO=${RCLONE_DESTINO:-}
+      - RCLONE_CONFIG=/config/rclone.conf
+      - BACKUP_PING_URL=${BACKUP_PING_URL:-}
+    volumes:
+      - ./backups:/backups
+      - ./rclone:/config
+    depends_on:
+      db_postgres:
+        condition: service_healthy
+    networks:
+      - rede_projeto
+
 volumes:
   postgres_data:
+  caddy_data:
+  caddy_config:
 
 networks:
   rede_projeto:
