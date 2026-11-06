@@ -1,0 +1,2 @@
+# Scripts executados dentro de containers Linux: sempre LF, mesmo em checkout no Windows
+*.sh text eol=lf

@@ -29,23 +29,22 @@
 
 **Observação importante (ver `Security.md`)**: os arquivos `back/.env` e `front/.env` estão, hoje, rastreados pelo Git no estado atual do repositório, contendo valores reais (não apenas exemplos) — incluindo segredos de produção. Isso é documentado como um risco de segurança, não como parte do fluxo recomendado de configuração.
 
-## 3. Rodando com Docker Compose (fluxo principal)
+## 3. Docker Compose = produção
+
+**Desde 2026-11-06, o `docker-compose.yml` é a configuração de produção na VPS** (passo a passo em [`Deploy.md`](Deploy.md)). Ele exige `DOMINIO`, `PGPASSWORD` e `JWT_SECRET_KEY` no `.env` da raiz (modelo: `.env.example`) e só expõe as portas 80/443, pelo Caddy, com HTTPS automático. Para desenvolver, use a seção 4 (sem Docker).
 
 ```bash
-docker compose up --build
+docker compose up -d --build
 ```
 
-Isso sobe, na ordem correta de dependência:
-1. **`db_postgres`** — Postgres 15, com healthcheck (`pg_isready`) que os demais serviços aguardam antes de subir.
-2. **`backend`** — build a partir de `back/Dockerfile`. Antes do gunicorn, roda `python migrar_banco.py` (`init_db()` + `stamp` da baseline se o banco não tem `alembic_version` + `alembic upgrade head`, ver seção 6.1); se falhar, o container não sobe. Depois executa `gunicorn -w 4 -b 0.0.0.0:5000 main:app` — não é necessário nenhum passo manual de "criar banco" ou "migrar" antes do primeiro uso.
-3. **`frontend`** — build multi-stage (`node:20-alpine` compila, `nginx:alpine` serve), expõe a porta `3050` (mapeada para a porta `80` do container Nginx).
+Serviços:
+1. **`db_postgres`** — Postgres 15, com healthcheck (`pg_isready`) que os demais serviços aguardam antes de subir. Sem porta exposta.
+2. **`backend`** — build a partir de `back/Dockerfile`. Antes do gunicorn, roda `python migrar_banco.py` (`init_db()` + `stamp` da baseline se o banco não tem `alembic_version` + `alembic upgrade head`, ver seção 6.1); se falhar, o container não sobe. Depois executa `gunicorn -w 4 -b 0.0.0.0:5000 main:app`. Sem porta exposta; `PROXY_HOPS=2` faz o rate limit enxergar o IP real do cliente atrás de Caddy + nginx.
+3. **`frontend`** — build multi-stage (`node:20-alpine` compila, `nginx:alpine` serve o React e faz proxy de `/api` ao backend). Sem porta exposta.
+4. **`caddy`** — porta de entrada (80/443), certificado HTTPS automático para o `DOMINIO` (`deploy/Caddyfile`).
+5. **`backup`** — dump diário do banco em `./backups` + cópia no Google Drive via rclone (`deploy/backup/`).
 
-Acesso, após subir:
-- Frontend: `http://localhost:3050`
-- Backend (direto, se necessário para debug): `http://localhost:5000/api/...`
-- Postgres (direto, se necessário): `localhost:5432`
-
-**Login inicial**: usuário seed `admin` / senha seed `admin` (criado automaticamente se a tabela `usuarios` estiver vazia — ver `Database.md`, seção 6).
+**Login inicial** (banco vazio): `ADMIN_USERNAME`/`ADMIN_PASSWORD` do `.env`; sem senha definida, uma aleatória é gerada e mostrada no log do backend.
 
 ## 4. Rodando sem Docker (desenvolvimento local)
 

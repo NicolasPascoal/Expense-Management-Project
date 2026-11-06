@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from flask import Flask, g, jsonify, request
 from flask_cors import CORS
 from werkzeug.exceptions import HTTPException
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from app.database.db import init_db
 from app.extensions import db, limiter
@@ -45,6 +46,15 @@ def _contexto_log(status_code=None):
 def create_app():
     configure_logging()
     app = Flask(__name__)
+
+    # Atrás de proxy (produção: Caddy → nginx → backend = 2), remote_addr é o
+    # IP do container do proxy: o rate limit do login trataria a empresa
+    # inteira como um único IP. PROXY_HOPS = quantos proxies confiáveis há na
+    # frente; o IP real vem do X-Forwarded-For. 0 (padrão) = acesso direto.
+    proxy_hops = int(os.getenv("PROXY_HOPS", "0"))
+    if proxy_hops > 0:
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=proxy_hops)
+
     limiter.init_app(app)
 
     app.config["SQLALCHEMY_DATABASE_URI"] = _sqlalchemy_database_uri()
